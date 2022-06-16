@@ -17,6 +17,17 @@ import (
 
 var cfgFile string
 
+var options = []string{
+	"show services deployed in an environment",
+	"show services in a helm chart",
+	"diff between helm charts",
+	"generate changelog between two given helm charts ",
+	"bump a service in a helm chart",
+	"bump a helm chart in an environment",
+	"override/remove override a service in an environment",
+	"undo / redo last commands",
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "divido-cli",
@@ -26,17 +37,6 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
 		client := internal.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN"))
-
-		options := []string{
-			"show services deployed in an environment",
-			"show services in a helm chart",
-			"diff between helm charts",
-			"generate changelog between two given helm charts ",
-			"bump a service in a helm chart",
-			"bump a helm chart in an environment",
-			"override/remove override a service in an environment",
-			"undo / redo last commands",
-			}
 
 		prompt := promptui.Select{
 			Label: "Select Option",
