@@ -47,10 +47,6 @@ func (c Config) GetProject(projectIndex int) *Project {
 	return &c.Projects[projectIndex]
 }
 
-func (c Config) GetEnvironment(projectIndex, envIndex int) *Environment {
-	p := c.GetProject(projectIndex)
-	if p == nil {
-		return nil
-	}
+func (p *Project) GetEnvironment(envIndex int) *Environment {
 	return &p.Envs[envIndex]
 }

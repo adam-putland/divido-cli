@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"github.com/google/go-github/v45/github"
+	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"time"
 )
@@ -25,18 +26,17 @@ func NewGithubClient(ctx context.Context, token string) *GithubClient {
 	}
 }
 
-func (c GithubClient) GetChartValues(ctx context.Context, sourceOwner string, sourceRepo string, chartPath string) ([]byte, error) {
+func (c GithubClient) GetContent(ctx context.Context, sourceOwner, sourceRepo, chartPath, ref string) ([]byte, error) {
 
-	if chartPath == "" {
-		chartPath = "config/values.yaml"
-	}
-	chart, _, _, err := c.Client.Repositories.GetContents(ctx, sourceOwner, sourceRepo, chartPath, nil)
+	contentFile, _, _, err := c.Client.Repositories.GetContents(ctx, sourceOwner, sourceRepo, chartPath, &github.RepositoryContentGetOptions{
+		Ref: ref,
+	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	content, err := chart.GetContent()
+	content, err := contentFile.GetContent()
 	if err != nil {
 		return nil, err
 	}
@@ -82,4 +82,17 @@ func (c GithubClient) Commit(ctx context.Context, data []byte, sourceOwner strin
 	ref.Object.SHA = newCommit.SHA
 	_, _, err = c.Client.Git.UpdateRef(ctx, sourceOwner, sourceRepo, ref, true)
 	return err
+}
+
+func (c *GithubClient) LatestRelease(org, repo string) (string, error) {
+	res, _, err := c.Client.Repositories.GetLatestRelease(context.Background(), org, repo)
+	if err != nil {
+		return "", err
+	}
+
+	if res.Name == nil {
+		return "", errors.New("cannot find latest release")
+	}
+
+	return *res.Name, nil
 }

@@ -24,7 +24,7 @@ var options = []string{
 	"generate changelog between two given helm charts ",
 	"bump a service in a helm chart",
 	"bump a helm chart in an environment",
-	"override/remove override a service in an environment",
+	"override/remove a service in an environment",
 	"undo / redo last commands",
 }
 
@@ -36,13 +36,12 @@ var rootCmd = &cobra.Command{
 
 	Run: func(cmd *cobra.Command, args []string) {
 		ctx := context.Background()
-		client := internal.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN"))
+		deployer := internal.NewDeployer(ctx, &config, viper.GetString("GITHUB_TOKEN"))
 
 		index, _, err := internal.Select("Select Option", options)
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			return
-
 		}
 
 		switch index {
@@ -58,15 +57,11 @@ var rootCmd = &cobra.Command{
 				return
 			}
 
-			env := config.GetEnvironment(index, envIndex)
-			if env == nil {
-				fmt.Print("Prompt failed: could not get env", err)
+			services, err := deployer.GetEnvServices(ctx, index, envIndex)
+			if err != nil {
 				return
 			}
-
-			data, err := client.GetChartValues(ctx, "dividohq",
-				env.Repo, env.ChartPath)
-			fmt.Printf("data: %s\n", data)
+			fmt.Printf("data: %s\n", services)
 
 		}
 	},
