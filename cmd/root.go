@@ -62,7 +62,17 @@ var rootCmd = &cobra.Command{
 				return
 			}
 			fmt.Printf("data: %s\n", services)
-
+		case 1:
+			index, _, err := internal.Select("Select project", config.ListProject())
+			if err != nil {
+				fmt.Printf("Prompt failed %v\n", err)
+				return
+			}
+			services, err := deployer.GetLatestChartServices(ctx, index)
+			if err != nil {
+				return
+			}
+			fmt.Printf("data: %s\n", services)
 		}
 	},
 }

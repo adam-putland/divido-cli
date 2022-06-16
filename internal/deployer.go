@@ -46,3 +46,15 @@ func (d Deployer) GetEnvServices(ctx context.Context, projectIndex, envIndex int
 		proj.HelmChart, "charts/services/values.yaml", fmt.Sprintf("v%s", strings.TrimSpace(string(hlmVersion))))
 
 }
+
+func (d Deployer) GetLatestChartServices(ctx context.Context, projectIndex int) ([]byte, error) {
+
+	proj := d.config.GetProject(projectIndex)
+	if proj == nil {
+		return nil, errors.New("could not get project")
+	}
+
+	return d.gh.GetContent(ctx, "dividohq",
+		proj.HelmChart, "charts/services/values.yaml", "master")
+
+}
