@@ -1,5 +1,5 @@
 {
-  "environments": [
+  "projects": [
   {
     "name": "divido",
     "hlm": "divido-platform-hlm",
@@ -7,7 +7,7 @@
       {
         "name": "test",
         "repo": "test-k8s-services-inf",
-        "chartPath": "configs/version.yaml"
+        "chartPath": "configs/versions.yaml"
       },
       {
         "name": "stag",

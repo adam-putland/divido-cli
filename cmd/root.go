@@ -5,15 +5,17 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"github.com/adam-putland/divido-cli/internal"
 	"os"
 
-	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var config internal.Config
 
 var options = []string{
 	"show services deployed in an environment",
@@ -33,25 +35,38 @@ var rootCmd = &cobra.Command{
 	Long:  `This cli provides tools for deploying services, updating helm charts and updating environments`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		// ctx := context.Background()
-		//client := internal.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN"))
+		ctx := context.Background()
+		client := internal.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN"))
 
-		prompt := promptui.Select{
-			Label: "Select Option",
-			Items: options,
-		}
-
-		index, _, err := prompt.Run()
-
+		index, _, err := internal.Select("Select Option", options)
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			return
+
 		}
 
 		switch index {
 		case 0:
-			//fmt.Println(client.Client.Repositories.List(ctx, "dividohq", nil))
-			fmt.Println(viper.Get("environments"))
+			index, _, err := internal.Select("Select project", config.ListProject())
+			if err != nil {
+				fmt.Printf("Prompt failed %v\n", err)
+				return
+			}
+
+			envIndex, _, err := internal.Select("Select env", config.ListEnvironments(index))
+			if err != nil {
+				return
+			}
+
+			env := config.GetEnvironment(index, envIndex)
+			if env == nil {
+				fmt.Print("Prompt failed: could not get env", err)
+				return
+			}
+
+			data, err := client.GetChartValues(ctx, "dividohq",
+				env.Repo, env.ChartPath)
+			fmt.Printf("data: %s\n", data)
 
 		}
 	},
@@ -104,5 +119,10 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+	}
+
+	config = internal.Config{}
+	if err := viper.Unmarshal(&config); err != nil {
+		fmt.Printf("unable to decode into config struct, %v", err)
 	}
 }
