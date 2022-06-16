@@ -7,12 +7,10 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"context"
 
-	"github.com/adam-putland/divido-cli/internal"
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/manifoldco/promptui"
 )
 
 var cfgFile string
@@ -32,18 +30,18 @@ var options = []string{
 var rootCmd = &cobra.Command{
 	Use:   "divido-cli",
 	Short: "A cli for Divido devs",
-	Long: `This cli provides tools for deploying services, updating helm charts and updating environments`,
+	Long:  `This cli provides tools for deploying services, updating helm charts and updating environments`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-		client := internal.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN"))
+		// ctx := context.Background()
+		//client := internal.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN"))
 
 		prompt := promptui.Select{
 			Label: "Select Option",
 			Items: options,
 		}
 
-		index,_, err := prompt.Run()
+		index, _, err := prompt.Run()
 
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
@@ -52,8 +50,8 @@ var rootCmd = &cobra.Command{
 
 		switch index {
 		case 0:
-			fmt.Println(client.Client.Repositories.List(ctx, "dividohq", nil))
-
+			//fmt.Println(client.Client.Repositories.List(ctx, "dividohq", nil))
+			fmt.Println(viper.Get("environments"))
 
 		}
 	},
@@ -93,13 +91,16 @@ func initConfig() {
 		cobra.CheckErr(err)
 
 		// Search config in home directory with name ".divido-cli" (without extension).
+		viper.AddConfigPath(".")
 		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".divido-cli")
+
+		viper.SetConfigType("json")
+		viper.SetConfigName("config")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
+	println("TEST")
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())

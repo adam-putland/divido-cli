@@ -1,0 +1,53 @@
+{
+  "environments": [
+  {
+    "name": "divido",
+    "hlm": "divido-platform-hlm",
+    "envs": [
+      {
+        "name": "test",
+        "repo": "test-k8s-services-inf",
+        "chartPath": "configs/version.yaml"
+      },
+      {
+        "name": "stag",
+        "repo" : "divido-platform-stag-inf"
+      },
+      {
+        "name": "sbx",
+        "repo" : "divido-platform-sbx-inf"
+      },
+      {
+        "name": "prod",
+        "repo" : "divido-platform-prod-inf"
+      }
+     ]
+  },
+    {
+      "name": "ing",
+      "hlm": "ing-platform-hlm",
+      "envs": [
+        {
+          "name": "test",
+          "repo": "ing-platform-test-inf"
+        },
+        {
+          "name": "stag",
+          "repo" : "ing-platform-stag-inf"
+        },
+        {
+          "name": "uat",
+          "repo" : "ing-platform-uat-inf"
+        },
+        {
+          "name": "sbx",
+          "repo" : "ing-platform-sbx-inf"
+        },
+        {
+          "name": "prod",
+          "repo" : "ing-platform-prod-inf"
+        }
+      ]
+    }
+  ]
+}
