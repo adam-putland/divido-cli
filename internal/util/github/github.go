@@ -1,9 +1,8 @@
-package internal
+package github
 
 import (
 	"context"
 	"github.com/google/go-github/v45/github"
-	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"time"
 )
@@ -84,15 +83,29 @@ func (c GithubClient) Commit(ctx context.Context, data []byte, sourceOwner strin
 	return err
 }
 
-func (c *GithubClient) LatestRelease(org, repo string) (string, error) {
+func (c *GithubClient) GetCommits(org string, repo string, base string, head string ) (*github.CommitsComparison, error){
+	res, _, err := c.Client.Repositories.CompareCommits(context.Background(), org, repo, base, head, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *GithubClient) GetReleases(org string, repo string) ([]*github.RepositoryRelease, error) {
+	res, _, err := c.Client.Repositories.ListReleases(context.Background(), org, repo, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *GithubClient) GetLatestRelease(org string, repo string) (*github.RepositoryRelease, error) {
 	res, _, err := c.Client.Repositories.GetLatestRelease(context.Background(), org, repo)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	if res.Name == nil {
-		return "", errors.New("cannot find latest release")
-	}
-
-	return *res.Name, nil
+	return res, nil
 }

@@ -5,9 +5,11 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal"
+	"github.com/adam-putland/divido-cli/internal/models"
+	"github.com/adam-putland/divido-cli/internal/service"
+	"github.com/adam-putland/divido-cli/internal/ui"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -15,17 +17,19 @@ import (
 )
 
 var cfgFile string
-var config internal.Config
+var config models.Config
 
 var options = []string{
-	"show services deployed in an environment",
-	"show services in a helm chart",
-	"diff between helm charts",
-	"generate changelog between two given helm charts ",
-	"bump a service in a helm chart",
-	"bump a helm chart in an environment",
-	"override/remove a service in an environment",
+	"Services query",
+	"Helm query",
+	"Environments query",
 	"undo / redo last commands",
+}
+
+var serviceOptions = []string{
+	"Versions",
+	"Generate Changelog",
+	"Back",
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -35,44 +39,48 @@ var rootCmd = &cobra.Command{
 	Long:  `This cli provides tools for deploying services, updating helm charts and updating environments`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		ctx := context.Background()
-		deployer := internal.NewDeployer(ctx, &config, viper.GetString("GITHUB_TOKEN"))
+		app := internal.CreateApp()
 
-		index, _, err := internal.Select("Select Option", options)
+		index, _, err := ui.Select("Select Option", options)
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
+			fmt.Printf("Select failed %v\n", err)
 			return
 		}
 
 		switch index {
 		case 0:
-			index, _, err := internal.Select("Select platform", config.ListPlatform())
+			s := app.Get("service").(*service.Service)
+			in, err := ui.Prompt("Enter service:")
 			if err != nil {
 				fmt.Printf("Prompt failed %v\n", err)
 				return
 			}
 
-			envIndex, _, err := internal.Select("Select env", config.ListEnvironments(index))
+			serv, err := s.GetServiceLatest(in)
 			if err != nil {
+				fmt.Printf("Error getting service %v\n", err)
 				return
 			}
 
-			services, err := deployer.GetEnvServices(ctx, index, envIndex)
-			if err != nil {
-				return
+			fmt.Print("\033[H\033[2J")
+			fmt.Printf("%s\nlatest version:%s\nURL:%s\n", serv.Name, serv.Version, serv.URL)
+			i ,_, err := ui.Select("Choose option", serviceOptions)
+
+			switch i {
+			case 0:
+				versions, err := s.GetServiceVersions(in)
+				if err != nil {
+					fmt.Printf("Error getting service versions %v\n", err)
+					return
+				}
+
+
+				fmt.Print(versions)
+
+
+			case 1:
+				//fmt.Println(s.GetChangelog(in,))
 			}
-			fmt.Printf("data: %s\n", services)
-		case 1:
-			index, _, err := internal.Select("Select platform", config.ListPlatform())
-			if err != nil {
-				fmt.Printf("Prompt failed %v\n", err)
-				return
-			}
-			services, err := deployer.GetLatestChartServices(ctx, index)
-			if err != nil {
-				return
-			}
-			fmt.Printf("data: %s\n", services)
 		}
 	},
 }
@@ -123,10 +131,5 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
-	}
-
-	config = internal.Config{}
-	if err := viper.Unmarshal(&config); err != nil {
-		fmt.Printf("unable to decode into config struct, %v", err)
 	}
 }

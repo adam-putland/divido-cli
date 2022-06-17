@@ -1,16 +1,17 @@
-package internal
+package models
 
 type Config struct {
-	Platforms []Platform
+	Platforms []PlatformConfig
+	Org string
 }
 
-type Platform struct {
+type PlatformConfig struct {
 	Name      string
 	HelmChartRepo string `mapstructure:"hlm"`
-	Envs      []Environment
+	Envs      []EnvironmentConfig
 }
 
-type Environment struct {
+type EnvironmentConfig struct {
 	Name      string
 	Repo      string
 	ChartPath string `mapstructure:",omitempty"`
@@ -40,13 +41,13 @@ func (c Config) ListEnvironments(platformIndex int) []string {
 	return environments
 }
 
-func (c Config) GetPlatform(platformIndex int) *Platform {
+func (c Config) GetPlatform(platformIndex int) *PlatformConfig {
 	if platformIndex < 0 {
 		return nil
 	}
 	return &c.Platforms[platformIndex]
 }
 
-func (p *Platform) GetEnvironment(envIndex int) *Environment {
+func (p *PlatformConfig) GetEnvironment(envIndex int) *EnvironmentConfig {
 	return &p.Envs[envIndex]
 }
