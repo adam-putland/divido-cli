@@ -1,10 +1,12 @@
 package ui
 
 import (
+	"fmt"
 	"github.com/manifoldco/promptui"
 )
 
 func Select(msg string, elems []string) (int, string, error) {
+	fmt.Println()
 	prompt2 := promptui.Select{
 		Label: msg,
 		Items: elems,

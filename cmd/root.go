@@ -5,11 +5,11 @@ Copyright © 2022 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal"
-	"github.com/adam-putland/divido-cli/internal/models"
-	"github.com/adam-putland/divido-cli/internal/service"
 	"github.com/adam-putland/divido-cli/internal/ui"
+	"github.com/sarulabs/di"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -17,20 +17,21 @@ import (
 )
 
 var cfgFile string
-var config models.Config
 
 var options = []string{
 	"Services query",
 	"Helm query",
 	"Environments query",
-	"undo / redo last commands",
+	"Exit",
 }
 
-var serviceOptions = []string{
-	"Versions",
-	"Generate Changelog",
-	"Back",
-}
+/// Service query -> prompts for input and shows the service, lists versions, click on version to get info, commit message, url to commit
+// Helm query -> prompt for platform (divido) ->
+// View -> list of versions -> select one version to see info (services, overrides, etc)
+//Diff -> list of versions -> choose two and it generates diff + option to make changelogs (JIRA API)
+//Bump -> show current version and give option to bump a service (could type in service and it shows versions you can choose)
+// Environment query -> prompt for platform, env -> show hc, overrides, services
+// undo / redo
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -39,50 +40,29 @@ var rootCmd = &cobra.Command{
 	Long:  `This cli provides tools for deploying services, updating helm charts and updating environments`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		app := internal.CreateApp()
-
-		index, _, err := ui.Select("Select Option", options)
-		if err != nil {
-			fmt.Printf("Select failed %v\n", err)
-			return
-		}
-
-		switch index {
-		case 0:
-			s := app.Get("service").(*service.Service)
-			in, err := ui.Prompt("Enter service:")
-			if err != nil {
-				fmt.Printf("Prompt failed %v\n", err)
-				return
-			}
-
-			serv, err := s.GetServiceLatest(in)
-			if err != nil {
-				fmt.Printf("Error getting service %v\n", err)
-				return
-			}
-
-			fmt.Print("\033[H\033[2J")
-			fmt.Printf("%s\nlatest version:%s\nURL:%s\n", serv.Name, serv.Version, serv.URL)
-			i ,_, err := ui.Select("Choose option", serviceOptions)
-
-			switch i {
-			case 0:
-				versions, err := s.GetServiceVersions(in)
-				if err != nil {
-					fmt.Printf("Error getting service versions %v\n", err)
-					return
-				}
-
-
-				fmt.Print(versions)
-
-
-			case 1:
-				//fmt.Println(s.GetChangelog(in,))
-			}
-		}
+		ctx := context.Background()
+		app := internal.CreateApp(ctx)
+		Run(ctx, app)
 	},
+}
+
+func Run(ctx context.Context, app di.Container) {
+	index, _, err := ui.Select("Select Option", options)
+	if err != nil {
+		fmt.Printf("Select failed %v\n", err)
+		return
+	}
+
+	switch index {
+	case 0:
+		ServiceUI(ctx, app)
+	case 1:
+		HelmUI(app)
+	case 2:
+		EnvUI(ctx, app)
+	case 3:
+		os.Exit(0)
+	}
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

@@ -4,7 +4,6 @@ import "github.com/google/go-github/v45/github"
 
 type Environment struct {
 	github.RepositoryRelease
-	Chart Chart
-	Overrides []Service
+	Chart     Chart
+	Overrides []Release
 }
-

@@ -9,9 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-func CreateApp() di.Container{
+func CreateApp(ctx context.Context) di.Container {
 	builder, _ := di.NewBuilder()
-	ctx := context.Background()
 
 	builder.Add([]di.Def{
 		{
@@ -21,8 +20,8 @@ func CreateApp() di.Container{
 				return github.NewGithubClient(ctx, viper.GetString("GITHUB_TOKEN")), nil
 			},
 			Close: nil},
-			{
-			Name: "config",
+		{
+			Name:  "config",
 			Scope: di.App,
 			Build: func(ctn di.Container) (interface{}, error) {
 				config := models.Config{}
@@ -33,13 +32,13 @@ func CreateApp() di.Container{
 			},
 			Close: nil},
 		{
-			Name: "service",
+			Name:  "service",
 			Scope: di.App,
 			Build: func(ctn di.Container) (interface{}, error) {
 				return service.New(ctn.Get("github").(*github.GithubClient), ctn.Get("config").(*models.Config)), nil
 			},
 			Close: nil},
-		}...)
+	}...)
 
 	return builder.Build()
 }
