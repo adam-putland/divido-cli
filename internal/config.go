@@ -1,12 +1,12 @@
 package internal
 
 type Config struct {
-	Projects []Project
+	Platforms []Platform
 }
 
-type Project struct {
+type Platform struct {
 	Name      string
-	HelmChart string `mapstructure:"hlm"`
+	HelmChartRepo string `mapstructure:"hlm"`
 	Envs      []Environment
 }
 
@@ -16,16 +16,16 @@ type Environment struct {
 	ChartPath string `mapstructure:",omitempty"`
 }
 
-func (c Config) ListProject() []string {
-	projects := make([]string, 0, len(c.Projects))
-	for _, project := range c.Projects {
-		projects = append(projects, project.Name)
+func (c Config) ListPlatform() []string {
+	platforms := make([]string, 0, len(c.Platforms))
+	for _, platform := range c.Platforms {
+		platforms = append(platforms, platform.Name)
 	}
-	return projects
+	return platforms
 }
 
-func (c Config) ListEnvironments(projectIndex int) []string {
-	p := c.GetProject(projectIndex)
+func (c Config) ListEnvironments(platformIndex int) []string {
+	p := c.GetPlatform(platformIndex)
 
 	if p == nil {
 		return nil
@@ -40,13 +40,13 @@ func (c Config) ListEnvironments(projectIndex int) []string {
 	return environments
 }
 
-func (c Config) GetProject(projectIndex int) *Project {
-	if projectIndex < 0 {
+func (c Config) GetPlatform(platformIndex int) *Platform {
+	if platformIndex < 0 {
 		return nil
 	}
-	return &c.Projects[projectIndex]
+	return &c.Platforms[platformIndex]
 }
 
-func (p *Project) GetEnvironment(envIndex int) *Environment {
+func (p *Platform) GetEnvironment(envIndex int) *Environment {
 	return &p.Envs[envIndex]
 }

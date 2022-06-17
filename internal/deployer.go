@@ -18,14 +18,14 @@ func NewDeployer(ctx context.Context, config *Config, token string) *Deployer {
 	return &Deployer{gh: NewGithubClient(ctx, token), config: config}
 }
 
-func (d Deployer) GetEnvServices(ctx context.Context, projectIndex, envIndex int) ([]byte, error) {
+func (d Deployer) GetEnvServices(ctx context.Context, platformIndex, envIndex int) ([]byte, error) {
 
-	proj := d.config.GetProject(projectIndex)
-	if proj == nil {
-		return nil, errors.New("could not get project")
+	plat := d.config.GetPlatform(platformIndex)
+	if plat == nil {
+		return nil, errors.New("could not get platform")
 	}
 
-	env := proj.GetEnvironment(envIndex)
+	env := plat.GetEnvironment(envIndex)
 	if env == nil {
 		return nil, errors.New("could not get env")
 	}
@@ -43,18 +43,18 @@ func (d Deployer) GetEnvServices(ctx context.Context, projectIndex, envIndex int
 	}
 
 	return d.gh.GetContent(ctx, "dividohq",
-		proj.HelmChart, "charts/services/values.yaml", fmt.Sprintf("v%s", strings.TrimSpace(string(hlmVersion))))
+		plat.HelmChartRepo, "charts/services/values.yaml", fmt.Sprintf("v%s", strings.TrimSpace(string(hlmVersion))))
 
 }
 
-func (d Deployer) GetLatestChartServices(ctx context.Context, projectIndex int) ([]byte, error) {
+func (d Deployer) GetLatestChartServices(ctx context.Context, platformIndex int) ([]byte, error) {
 
-	proj := d.config.GetProject(projectIndex)
-	if proj == nil {
-		return nil, errors.New("could not get project")
+	plat := d.config.GetPlatform(platformIndex)
+	if plat == nil {
+		return nil, errors.New("could not get platform")
 	}
 
 	return d.gh.GetContent(ctx, "dividohq",
-		proj.HelmChart, "charts/services/values.yaml", "master")
+		plat.HelmChartRepo, "charts/services/values.yaml", "master")
 
 }

@@ -1,5 +1,5 @@
 {
-  "projects": [
+  "platforms": [
   {
     "name": "divido",
     "hlm": "divido-platform-hlm",

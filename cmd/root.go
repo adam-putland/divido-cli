@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 
 		switch index {
 		case 0:
-			index, _, err := internal.Select("Select project", config.ListProject())
+			index, _, err := internal.Select("Select platform", config.ListPlatform())
 			if err != nil {
 				fmt.Printf("Prompt failed %v\n", err)
 				return
@@ -63,7 +63,7 @@ var rootCmd = &cobra.Command{
 			}
 			fmt.Printf("data: %s\n", services)
 		case 1:
-			index, _, err := internal.Select("Select project", config.ListProject())
+			index, _, err := internal.Select("Select platform", config.ListPlatform())
 			if err != nil {
 				fmt.Printf("Prompt failed %v\n", err)
 				return
@@ -120,7 +120,6 @@ func initConfig() {
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	println("TEST")
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
