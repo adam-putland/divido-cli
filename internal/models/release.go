@@ -26,3 +26,7 @@ type Release struct {
 	Changelog string
 	URL       string
 }
+
+func (release Release) Info() string {
+	return fmt.Sprintf("service name: %s\nlatest version: %s\nURL: %s\n", release.Name, release.Version, release.URL)
+}

@@ -1,9 +1,19 @@
 package models
 
-import "github.com/google/go-github/v45/github"
+import "fmt"
+
+type Service struct {
+	Name    string
+	Version string
+}
 
 type Environment struct {
-	github.RepositoryRelease
-	Chart     Chart
-	Overrides []Release
+	EnvironmentConfig
+	HelmChartVersion string
+	Overrides        []byte
+	Services         []byte
+}
+
+func (env Environment) Info() string {
+	return fmt.Sprintf("helm version: %s\n overrides: %s", env.HelmChartVersion, env.Overrides)
 }

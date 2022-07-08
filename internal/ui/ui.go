@@ -22,3 +22,13 @@ func Prompt(msg string) (string, error) {
 
 	return prompt.Run()
 }
+
+func PromptWithDefault(msg, defaultMsg string) (string, error) {
+	prompt := promptui.Prompt{
+		Label:    msg,
+		Validate: func(input string) error { return nil },
+		Default:  defaultMsg,
+	}
+
+	return prompt.Run()
+}

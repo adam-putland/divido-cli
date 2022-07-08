@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal"
 	"github.com/adam-putland/divido-cli/internal/ui"
@@ -39,30 +40,39 @@ var rootCmd = &cobra.Command{
 	Short: "A cli for Divido devs",
 	Long:  `This cli provides tools for deploying services, updating helm charts and updating environments`,
 
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		app := internal.CreateApp(ctx)
-		Run(ctx, app)
+		if app == nil {
+			return errors.New("error generation application")
+		}
+		return Run(ctx, *app)
 	},
 }
 
-func Run(ctx context.Context, app di.Container) {
+func Run(ctx context.Context, app di.Container) error {
 	index, _, err := ui.Select("Select Option", options)
 	if err != nil {
-		fmt.Printf("Select failed %v\n", err)
-		return
+		return fmt.Errorf("select failed %v", err)
 	}
 
+	var errUI error
 	switch index {
 	case 0:
-		ServiceUI(ctx, app)
+		errUI = ServiceUI(ctx, app)
 	case 1:
 		HelmUI(app)
 	case 2:
-		EnvUI(ctx, app)
+		errUI = EnvUI(ctx, app)
 	case 3:
-		os.Exit(0)
+		return nil
 	}
+
+	if errUI != nil {
+		fmt.Println(errUI)
+	}
+	return Run(ctx, app)
+
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

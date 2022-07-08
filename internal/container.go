@@ -9,10 +9,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-func CreateApp(ctx context.Context) di.Container {
+func CreateApp(ctx context.Context) *di.Container {
 	builder, _ := di.NewBuilder()
 
-	builder.Add([]di.Def{
+	err := builder.Add([]di.Def{
 		{
 			Name:  "github",
 			Scope: di.App,
@@ -39,6 +39,10 @@ func CreateApp(ctx context.Context) di.Container {
 			},
 			Close: nil},
 	}...)
+	if err != nil {
+		return nil
+	}
 
-	return builder.Build()
+	c := builder.Build()
+	return &c
 }

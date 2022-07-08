@@ -16,48 +16,45 @@ var serviceOptions = []string{
 	"Back",
 }
 
-func ServiceUI(ctx context.Context, app di.Container) {
+func ServiceUI(ctx context.Context, app di.Container) error {
 	s := app.Get("service").(*service.Service)
-	in, err := ui.Prompt("Enter service")
+	serviceName, err := ui.Prompt("Enter service")
 	if err != nil {
-		fmt.Printf("Prompt failed %v\n", err)
+		fmt.Printf("Prompt failed %v", err)
 		os.Exit(1)
 	}
 
-	serv, err := s.GetServiceLatest(in)
+	serv, err := s.GetServiceLatest(serviceName)
 	if err != nil {
-		fmt.Printf("Error getting service %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("getting service %w", err)
 	}
-	fmt.Printf("%s\nlatest version: %s\nURL: %s\n", serv.Name, serv.Version, serv.URL)
+	fmt.Println(serv.Info())
 
-	ServiceOptionsUI(ctx, app, s, in)
+	return ServiceOptionsUI(ctx, s, serviceName)
 }
 
-func ServiceOptionsUI(ctx context.Context, app di.Container, s *service.Service, in string) {
-	i, _, err := ui.Select("Choose option", serviceOptions)
+func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName string) error {
+	option, _, err := ui.Select("Choose option", serviceOptions)
 	if err != nil {
 		fmt.Printf("Prompt failed %v\n", err)
 		os.Exit(1)
 	}
 
-	switch i {
+	switch option {
 	case 0:
-		versions, err := s.GetServiceVersions(in)
+		versions, err := s.GetServiceVersions(serviceName)
 		if err != nil {
-			fmt.Printf("Error getting service versions %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("getting service versions %w", err)
 		}
 		fmt.Print(versions)
-		ctx = context.WithValue(ctx, fmt.Sprintf("%s-releases", in), versions)
+		ctx = context.WithValue(ctx, fmt.Sprintf("%s-releases", serviceName), versions)
 
 	case 1:
-		releases, ok := ctx.Value(fmt.Sprintf("%s-releases", in)).(models.Releases)
+		releases, ok := ctx.Value(fmt.Sprintf("%s-releases", serviceName)).(models.Releases)
 		if !ok {
-			releases, err = s.GetServiceVersions(in)
+			releases, err = s.GetServiceVersions(serviceName)
 			if err != nil {
-				fmt.Printf("Error getting service versions %v\n", err)
-				os.Exit(1)
+				return fmt.Errorf("getting service versions %w", err)
 			}
 		}
 
@@ -72,22 +69,21 @@ func ServiceOptionsUI(ctx context.Context, app di.Container, s *service.Service,
 		versions[len(versions)-1] = ""       // remove element
 		versions = versions[:len(versions)-1]
 
-		_, sVersion, err := ui.Select("Select first version", versions)
+		_, sVersion, err := ui.Select("Select last version", versions)
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
 		}
 
-		changelog, err := s.GetChangelog(in, fVersion, sVersion)
+		changelog, err := s.GetChangelog(serviceName, fVersion, sVersion)
 		if err != nil {
-			fmt.Printf("Error getting service versions %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf("getting changelog %w", err)
 		}
 		fmt.Print(changelog)
 
 	case 2:
-		Run(ctx, app)
-		return
+		return nil
 	}
-	ServiceOptionsUI(ctx, app, s, in)
+
+	return ServiceOptionsUI(ctx, s, serviceName)
 }

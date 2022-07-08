@@ -83,7 +83,7 @@ func (c GithubClient) Commit(ctx context.Context, data []byte, sourceOwner strin
 	return err
 }
 
-func (c *GithubClient) GetCommits(org string, repo string, base string, head string ) (*github.CommitsComparison, error){
+func (c *GithubClient) GetCommits(org string, repo string, base string, head string) (*github.CommitsComparison, error) {
 	res, _, err := c.Client.Repositories.CompareCommits(context.Background(), org, repo, base, head, nil)
 	if err != nil {
 		return nil, err

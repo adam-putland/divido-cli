@@ -2,19 +2,21 @@ package models
 
 type Config struct {
 	Platforms []PlatformConfig
-	Org string
+	Org       string
 }
 
 type PlatformConfig struct {
-	Name      string
+	Name          string
 	HelmChartRepo string `mapstructure:"hlm"`
-	Envs      []EnvironmentConfig
+	Envs          []EnvironmentConfig
+	DirectCommit  bool
 }
 
 type EnvironmentConfig struct {
-	Name      string
-	Repo      string
-	ChartPath string `mapstructure:",omitempty"`
+	Name         string
+	Repo         string
+	ChartPath    string `mapstructure:",omitempty"`
+	DirectCommit bool
 }
 
 func (c Config) ListPlatform() []string {

@@ -8,7 +8,8 @@
       {
         "name": "test",
         "repo": "test-k8s-services-inf",
-        "chartPath": "configs/versions.yaml"
+        "chartPath": "configs/versions.yaml",
+        "directCommit": true
       },
       {
         "name": "stag",
@@ -30,7 +31,8 @@
       "envs": [
         {
           "name": "test",
-          "repo": "ing-platform-test-inf"
+          "repo": "ing-platform-test-inf",
+          "directCommit": true
         },
         {
           "name": "stag",
