@@ -6,6 +6,7 @@ import (
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/service"
 	"github.com/adam-putland/divido-cli/internal/ui"
+	"github.com/adam-putland/divido-cli/internal/util/github"
 	"github.com/sarulabs/di"
 	"os"
 	"strings"
@@ -39,10 +40,10 @@ func EnvUI(ctx context.Context, app di.Container) error {
 
 	fmt.Println(env.Info())
 
-	return EnvOptionsUI(ctx, s, env, platIndex)
+	return EnvOptionsUI(ctx, s, env, config, platIndex)
 }
 
-func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environment, platIndex int) error {
+func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environment, config *models.Config, platIndex int) error {
 
 	option, _, err := ui.Select("Choose option", envOptions)
 	if err != nil {
@@ -73,9 +74,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 		}
 
 		version := strings.Trim(fVersion, "v")
-
-		message := fmt.Sprintf("%s: %s %s", models.DefaultPreMessage, models.DefaultMessageBumpHc, fVersion)
-		githubDetails := models.NewGitHubCommit(message)
+		githubDetails := github.WithBumpHC(&config.Github, fVersion)
 		err = BumpHelmUI(ctx, s, env, githubDetails, version)
 		if err != nil {
 			fmt.Println(err)
@@ -85,11 +84,11 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 		return nil
 	}
 
-	return EnvOptionsUI(ctx, s, env, platIndex)
+	return EnvOptionsUI(ctx, s, env, config, platIndex)
 }
 
-func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment, githubDetails *models.GitHubCommit, version string) error {
-	fmt.Printf("Github Details \n%s", githubDetails)
+func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment, gd *github.Commit, version string) error {
+	fmt.Printf("Github Details \n%s", gd)
 
 	options := []string{
 		"Change Author Name",
@@ -99,9 +98,10 @@ func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment
 		"Continue",
 		"Back",
 	}
+
 	if !env.DirectCommit {
-		fmt.Printf("Pull Request Description %s", githubDetails.PullRequestDescription)
-		options = append(options, "Change pull request description")
+		fmt.Print(gd.PullRequestInfo())
+		options = append(options, []string{"Change pull request title", "Change pull request description"}...)
 	}
 
 	githubC, _, err := ui.Select("Choose option", options)
@@ -112,37 +112,53 @@ func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment
 
 	switch githubC {
 	case 0:
-		githubDetails.AuthorName, err = ui.PromptWithDefault("Enter Author Name", githubDetails.AuthorName)
+		gd.AuthorName, err = ui.PromptWithDefault("Enter Author Name", gd.AuthorName)
 		if err != nil {
 			fmt.Printf("Prompt failed %v", err)
 			os.Exit(1)
 		}
 
 	case 1:
-		githubDetails.AuthorName, err = ui.PromptWithDefault("Enter Author Name", githubDetails.AuthorName)
+		gd.AuthorName, err = ui.PromptWithDefault("Enter Author Email", gd.AuthorEmail)
 		if err != nil {
 			fmt.Printf("Prompt failed %v", err)
 			os.Exit(1)
 		}
 	case 2:
-		githubDetails.AuthorName, err = ui.PromptWithDefault("Enter Author Name", githubDetails.AuthorName)
+		gd.AuthorName, err = ui.PromptWithDefault("Enter Commit Message", gd.Message)
 		if err != nil {
 			fmt.Printf("Prompt failed %v", err)
 			os.Exit(1)
 		}
 	case 3:
-		githubDetails.AuthorName, err = ui.PromptWithDefault("Enter Author Name", githubDetails.AuthorName)
+		gd.AuthorName, err = ui.PromptWithDefault("Enter Branch", gd.Branch)
 		if err != nil {
 			fmt.Printf("Prompt failed %v", err)
 			os.Exit(1)
 		}
 	case 4:
-		err = s.UpdateHelmVersion(ctx, env, githubDetails, version)
+		err = s.UpdateHelmVersion(ctx, env, gd, version)
 		if err != nil {
 			return fmt.Errorf("loading environment services %w", err)
 		}
 		fmt.Printf("Helm updated to version %s", version)
 		return nil
+	case 5:
+		return nil
+	case 6:
+		gd.PullRequestTitle, err = ui.PromptWithDefault("Enter Pull request title", gd.PullRequestTitle)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+
+	case 7:
+		gd.PullRequestDescription, err = ui.PromptWithDefault("Enter Pull request description", gd.PullRequestDescription)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+
 	}
-	return BumpHelmUI(ctx, s, env, githubDetails, version)
+	return BumpHelmUI(ctx, s, env, gd, version)
 }

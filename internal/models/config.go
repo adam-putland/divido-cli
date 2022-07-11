@@ -2,7 +2,18 @@ package models
 
 type Config struct {
 	Platforms []PlatformConfig
-	Org       string
+	Github    GithubConfig
+}
+
+type GithubConfig struct {
+	Org                          string
+	AuthorName                   string
+	AuthorEmail                  string
+	MainBranch                   string
+	Message                      string
+	PreCommitMessage             string
+	CommitMessageBumpHc          string
+	CommitMessageOverrideService string
 }
 
 type PlatformConfig struct {

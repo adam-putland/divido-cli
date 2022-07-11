@@ -23,7 +23,10 @@ type Parser struct {
 }
 
 func NewParser(version string, service string) *Parser {
-	return &Parser{version: version, service: service}
+	return &Parser{
+		version: version,
+		service: service,
+	}
 }
 
 func (p *Parser) Load(data []byte) error {

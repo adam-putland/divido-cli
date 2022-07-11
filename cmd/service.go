@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/service"
 	"github.com/adam-putland/divido-cli/internal/ui"
 	"github.com/sarulabs/di"
@@ -47,15 +46,12 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 			return fmt.Errorf("getting service versions %w", err)
 		}
 		fmt.Print(versions)
-		ctx = context.WithValue(ctx, fmt.Sprintf("%s-releases", serviceName), versions)
 
 	case 1:
-		releases, ok := ctx.Value(fmt.Sprintf("%s-releases", serviceName)).(models.Releases)
-		if !ok {
-			releases, err = s.GetServiceVersions(serviceName)
-			if err != nil {
-				return fmt.Errorf("getting service versions %w", err)
-			}
+
+		releases, err := s.GetServiceVersions(serviceName)
+		if err != nil {
+			return fmt.Errorf("getting service versions %w", err)
 		}
 
 		versions := releases.Versions()

@@ -1,5 +1,13 @@
 {
-  "org": "dividohq",
+  "github" : {
+    "org": "dividohq",
+    "preCommitMessage": "chore(autocommit)",
+    "commitMessageBumpHc": "Automatic bump hc",
+    "commitMessageOverrideService": "Automatic service override",
+    "authorName": "dividotech",
+    "authorEmail": "tech@divido.com",
+    "mainBranch": "master"
+  },
   "platforms": [
   {
     "name": "divido",
