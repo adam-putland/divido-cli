@@ -9,7 +9,6 @@ import (
 	"github.com/adam-putland/divido-cli/internal/util/github"
 	"github.com/sarulabs/di"
 	"os"
-	"strings"
 )
 
 var envOptions = []string{
@@ -73,9 +72,8 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 			os.Exit(1)
 		}
 
-		version := strings.Trim(fVersion, "v")
 		githubDetails := github.WithBumpHC(&config.Github, fVersion)
-		err = BumpHelmUI(ctx, s, env, githubDetails, version)
+		err = BumpHelmUI(ctx, s, env, githubDetails, fVersion)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -137,11 +135,12 @@ func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment
 			os.Exit(1)
 		}
 	case 4:
+
 		err = s.UpdateHelmVersion(ctx, env, gd, version)
 		if err != nil {
 			return fmt.Errorf("loading environment services %w", err)
 		}
-		fmt.Printf("Helm updated to version %s", version)
+		fmt.Printf("Env: %s Helm updated to version %s", env.Name, version)
 		return nil
 	case 5:
 		return nil

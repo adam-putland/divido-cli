@@ -131,7 +131,7 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 	}
 
 	content, err := s.gh.GetContent(ctx, s.config.Github.Org,
-		plat.HelmChartRepo, _defaultChatServicesFilePath, fmt.Sprintf("v%s", strings.TrimSpace(env.HelmChartVersion)))
+		plat.HelmChartRepo, _defaultChatServicesFilePath, env.GetHCVersion())
 
 	if err != nil {
 		return err
@@ -142,13 +142,24 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 }
 
 func (s *Service) UpdateHelmVersion(ctx context.Context, env *models.Environment, githubDetails *github.Commit, version string) error {
+
+	version = strings.Trim(version, "v")
 	if env.DirectCommit {
-		return s.gh.Commit(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
+		err := s.gh.Commit(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
 			githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message)
+		if err != nil {
+			return err
+		}
 	}
 
-	return s.gh.CreatePullRequest(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
-		s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message)
+	err := s.gh.CreatePullRequest(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
+		s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
+	if err != nil {
+		return err
+	}
+
+	env.HelmChartVersion = version
+	return nil
 }
 
 func (s *Service) GetHelmVersions(env *models.Environment, platIndex int) (models.Releases, error) {
@@ -164,7 +175,7 @@ func (s *Service) GetHelmVersions(env *models.Environment, platIndex int) (model
 	}
 	arr := make([]*models.Release, 0, len(repository))
 
-	tagVersion := fmt.Sprintf("v%s", strings.TrimSpace(env.HelmChartVersion))
+	tagVersion := env.GetHCVersion()
 	for _, repo := range repository {
 		if *repo.TagName != tagVersion {
 			arr = append(arr, &models.Release{
