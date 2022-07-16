@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/util/github"
+	"github.com/sergi/go-diff/diffmatchpatch"
 	"strings"
 )
 
@@ -30,8 +31,8 @@ func New(
 	}
 }
 
-func (s *Service) GetChangelog(name string, version1 string, version2 string) (string, error) {
-	resp, err := s.gh.GetCommits(s.config.Github.Org, name, version1, version2)
+func (s *Service) GetChangelog(ctx context.Context, name string, version1 string, version2 string) (string, error) {
+	resp, err := s.gh.GetCommits(ctx, s.config.Github.Org, name, version1, version2)
 	if err != nil {
 		return "", err
 	}
@@ -48,8 +49,8 @@ func (s *Service) GetChangelog(name string, version1 string, version2 string) (s
 	return builder.String(), nil
 }
 
-func (s *Service) GetServiceLatest(name string) (*models.Release, error) {
-	repo, err := s.gh.GetLatestRelease(s.config.Github.Org, name)
+func (s *Service) GetLatest(ctx context.Context, name string) (*models.Release, error) {
+	repo, err := s.gh.GetLatestRelease(ctx, s.config.Github.Org, name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +63,8 @@ func (s *Service) GetServiceLatest(name string) (*models.Release, error) {
 	}, nil
 }
 
-func (s *Service) GetServiceVersions(name string) (models.Releases, error) {
-	repository, err := s.gh.GetReleases(s.config.Github.Org, name)
+func (s *Service) GetRepoReleases(ctx context.Context, name string) (models.Releases, error) {
+	repository, err := s.gh.GetReleases(ctx, s.config.Github.Org, name)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (s Service) GetEnv(ctx context.Context, platIndex, envIndex int) (*models.E
 		EnvironmentConfig: *env,
 	}
 
-	//if no ChartPath will load services directly from the env repo
+	// if no ChartPath will load services directly from the env repo
 	if env.ChartPath != "" {
 		content, err := s.gh.GetContent(ctx, s.config.Github.Org,
 			env.Repo, env.ChartPath, s.config.Github.MainBranch)
@@ -162,14 +163,14 @@ func (s *Service) UpdateHelmVersion(ctx context.Context, env *models.Environment
 	return nil
 }
 
-func (s *Service) GetHelmVersions(env *models.Environment, platIndex int) (models.Releases, error) {
+func (s *Service) GetHelmVersions(ctx context.Context, env *models.Environment, platIndex int) (models.Releases, error) {
 
 	plat := s.config.GetPlatform(platIndex)
 	if plat == nil {
 		return nil, errors.New("could not get platform")
 	}
 
-	repository, err := s.gh.GetReleases(s.config.Github.Org, plat.HelmChartRepo)
+	repository, err := s.gh.GetReleases(ctx, s.config.Github.Org, plat.HelmChartRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -188,4 +189,65 @@ func (s *Service) GetHelmVersions(env *models.Environment, platIndex int) (model
 	}
 
 	return arr, nil
+}
+
+func (s *Service) GetPlat(ctx context.Context, platRepo string) (*models.Platform, error) {
+
+	latest, err := s.GetLatest(ctx, platRepo)
+	if err != nil {
+		return nil, err
+	}
+
+	plat := models.Platform{Release: *latest}
+
+	plat.Services, err = s.gh.GetContent(ctx, s.config.Github.Org, platRepo, _defaultChatServicesFilePath, latest.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	return &plat, nil
+}
+
+func (s *Service) ComparePlatVersions(ctx context.Context, repo string, version string, version2 string) (*models.Comparer, error) {
+
+	resultsChan := make(chan string)
+
+	changelog, err := s.GetChangelog(ctx, repo, version, version2)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		content, err := s.gh.GetContent(ctx, s.config.Github.Org, repo, _defaultChatServicesFilePath, version)
+		if err != nil {
+			resultsChan <- ""
+		}
+		resultsChan <- string(content)
+	}()
+
+	go func() {
+		content, err := s.gh.GetContent(ctx, s.config.Github.Org, repo, _defaultChatServicesFilePath, version2)
+		if err != nil {
+			resultsChan <- ""
+		}
+		resultsChan <- string(content)
+	}()
+
+	comparer := models.Comparer{Changelog: changelog}
+	var results []string
+	for {
+		result := <-resultsChan
+		results = append(results, result)
+
+		// if we've reached the expected amount of urls then stop
+		if len(results) == 2 {
+			break
+		}
+	}
+
+	dmp := diffmatchpatch.New()
+	diffs := dmp.DiffMain(results[0], results[1], false)
+	comparer.Diff = dmp.DiffPrettyText(diffs)
+
+	return &comparer, nil
 }

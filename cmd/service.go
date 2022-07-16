@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal/service"
-	"github.com/adam-putland/divido-cli/internal/ui"
+	"github.com/adam-putland/divido-cli/internal/util"
 	"github.com/sarulabs/di"
 	"os"
 )
@@ -17,23 +17,23 @@ var serviceOptions = []string{
 
 func ServiceUI(ctx context.Context, app di.Container) error {
 	s := app.Get("service").(*service.Service)
-	serviceName, err := ui.Prompt("Enter service")
+	serviceName, err := util.Prompt("Enter service")
 	if err != nil {
 		fmt.Printf("Prompt failed %v", err)
 		os.Exit(1)
 	}
 
-	serv, err := s.GetServiceLatest(serviceName)
+	serv, err := s.GetLatest(ctx, serviceName)
 	if err != nil {
 		return fmt.Errorf("getting service %w", err)
 	}
-	fmt.Println(serv.Info())
+	fmt.Println(serv)
 
 	return ServiceOptionsUI(ctx, s, serviceName)
 }
 
 func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName string) error {
-	option, _, err := ui.Select("Choose option", serviceOptions)
+	option, _, err := util.Select("Choose option", serviceOptions)
 	if err != nil {
 		fmt.Printf("Prompt failed %v\n", err)
 		os.Exit(1)
@@ -41,7 +41,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 
 	switch option {
 	case 0:
-		versions, err := s.GetServiceVersions(serviceName)
+		versions, err := s.GetRepoReleases(ctx, serviceName)
 		if err != nil {
 			return fmt.Errorf("getting service versions %w", err)
 		}
@@ -49,29 +49,27 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 
 	case 1:
 
-		releases, err := s.GetServiceVersions(serviceName)
+		releases, err := s.GetRepoReleases(ctx, serviceName)
 		if err != nil {
 			return fmt.Errorf("getting service versions %w", err)
 		}
 
 		versions := releases.Versions()
-		fi, fVersion, err := ui.Select("Select first version", versions)
+		fi, fVersion, err := util.Select("Select first version", versions)
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
 		}
 
-		copy(versions[fi:], versions[fi+1:]) // shift valuesafter the indexwith a factor of 1
-		versions[len(versions)-1] = ""       // remove element
-		versions = versions[:len(versions)-1]
+		versions.Remove(fi)
 
-		_, sVersion, err := ui.Select("Select last version", versions)
+		_, sVersion, err := util.Select("Select last version", versions)
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
 		}
 
-		changelog, err := s.GetChangelog(serviceName, fVersion, sVersion)
+		changelog, err := s.GetChangelog(ctx, serviceName, fVersion, sVersion)
 		if err != nil {
 			return fmt.Errorf("getting changelog %w", err)
 		}

@@ -1,11 +1,12 @@
 package service
 
 import (
+	"github.com/adam-putland/divido-cli/internal/models"
 	"reflect"
 	"testing"
 )
 
-func TestParser_Run(t *testing.T) {
+func TestParser_Replace(t *testing.T) {
 	type fields struct {
 		version string
 		service string
@@ -62,10 +63,16 @@ func TestParser_Run(t *testing.T) {
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
+  # api
+  api:
+    serviceVersion: v1.0.4
 `}, wantErr: false, want: `services:
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
+  # api
+  api:
+    serviceVersion: v1.0.4
   test:
     serviceVersion: v1.0.4
 `},
@@ -108,16 +115,19 @@ func TestParser_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := &Parser{
-				version: tt.fields.version,
-				service: tt.fields.service,
-			}
 
-			err := p.Load([]byte(tt.fields.yaml))
+			p := NewParser([]byte(tt.fields.yaml))
+
+			_, err := p.Load()
 			if err != nil {
 				t.Error(err)
 			}
-			if err = p.Run(); (err != nil) != tt.wantErr {
+
+			services := make(map[string]*models.Service)
+
+			services[tt.fields.service] = &models.Service{HLMName: tt.fields.service, Release: models.Release{Version: tt.fields.version}}
+
+			if err = p.Replace(services); (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 
 			}

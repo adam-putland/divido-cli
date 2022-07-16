@@ -2,9 +2,10 @@ package service
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/adam-putland/divido-cli/internal/models"
+	"github.com/mitchellh/mapstructure"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,30 +13,25 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type YamlFile struct {
-	Services map[string]interface{} `yaml:"services"`
-}
-
 type Parser struct {
-	version    string
-	service    string
 	loadedYaml yaml.Node
+	rawData    []byte
 }
 
-func NewParser(version string, service string) *Parser {
+func NewParser(rawData []byte) *Parser {
 	return &Parser{
-		version: version,
-		service: service,
+		rawData: rawData,
 	}
 }
 
-func (p *Parser) Load(data []byte) error {
-	return yaml.Unmarshal(data, &p.loadedYaml)
-}
+func (p *Parser) Load() (models.Services, error) {
+	err := yaml.Unmarshal(p.rawData, &p.loadedYaml)
+	if err != nil {
+		return nil, err
+	}
 
-func (p Parser) Run() error {
 	if len(p.loadedYaml.Content) == 0 {
-		return errors.New("invalid file")
+		return nil, errors.New("invalid file")
 	}
 
 	// check if loading from document file
@@ -43,33 +39,62 @@ func (p Parser) Run() error {
 		p.loadedYaml = *p.loadedYaml.Content[0]
 	}
 
-	foundService := false
+	services := make(map[string]*models.Service)
+
 	for keyIndex := 0; keyIndex < len(p.loadedYaml.Content); keyIndex++ {
 		if p.loadedYaml.Content[keyIndex].Kind == yaml.MappingNode {
 			for i := 0; i < len(p.loadedYaml.Content[keyIndex].Content); i++ {
-				if strings.ReplaceAll(p.loadedYaml.Content[keyIndex].Content[i].Value, " ", "") == p.service {
-					foundService = true
-					updatedRepo, err := p.UpdateExternalRepo(keyIndex, i)
+				key := strings.ReplaceAll(p.loadedYaml.Content[keyIndex].Content[i].Value, " ", "")
+				if key != "" {
+					content := p.loadedYaml.Content[keyIndex].Content[i+1]
+					repo, err := p.GetRepo(content)
+					if err != nil {
+						return nil, err
+					}
+					services[key] = &models.Service{HLMName: key, Release: models.Release{Version: repo.GetVersion()}}
+				}
+			}
+		}
+	}
+
+	return services, nil
+}
+
+func (p *Parser) Replace(services models.Services) error {
+
+	for keyIndex := 0; keyIndex < len(p.loadedYaml.Content); keyIndex++ {
+		if p.loadedYaml.Content[keyIndex].Kind == yaml.MappingNode {
+			for i := 0; i < len(p.loadedYaml.Content[keyIndex].Content); i++ {
+				key := strings.ReplaceAll(p.loadedYaml.Content[keyIndex].Content[i].Value, " ", "")
+				if service, ok := services[key]; ok {
+
+					content := p.loadedYaml.Content[keyIndex].Content[i+1]
+					repo, err := p.GetRepo(content)
 					if err != nil {
 						return err
 					}
-					if !updatedRepo {
-						err = p.UpdateInternalRepo(keyIndex, i)
-						if err != nil {
-							return err
-						}
+
+					repo.UpdateVersion(service.Version)
+					if err = content.Encode(&repo); err != nil {
+						return err
 					}
+					fmt.Printf("updated service %s from %s to %s\n", service.Name, repo.GetVersion(), service.Version)
+
+					delete(services, key)
 					break
 				}
 			}
 
 			// if the service is not in the document it will be created
-			if !foundService {
-				nodes, err := p.CreateServiceNodes()
-				if err != nil {
-					return err
+			if len(services) > 0 {
+				for _, service := range services {
+					nodes, err := p.CreateServiceNodes(service)
+					if err != nil {
+						return err
+					}
+					p.loadedYaml.Content[keyIndex].Content = append(p.loadedYaml.Content[keyIndex].Content, nodes...)
 				}
-				p.loadedYaml.Content[keyIndex].Content = append(p.loadedYaml.Content[keyIndex].Content, nodes...)
+
 			}
 		}
 	}
@@ -77,72 +102,86 @@ func (p Parser) Run() error {
 	return nil
 }
 
-func (p *Parser) UpdateInternalRepo(keyIndex int, i int) error {
-	var internalRepo struct {
-		Podspec struct {
-			Services map[string]interface{} `yaml:"containers"`
-		} `yaml:"podspec"`
-	}
-
-	err := p.loadedYaml.Content[keyIndex].Content[i+1].Decode(&internalRepo)
-	if err != nil {
-		return err
-	}
-	if len(internalRepo.Podspec.Services) > 0 {
-		for index, service := range internalRepo.Podspec.Services {
-			jsonb, err := json.Marshal(service)
-			if err != nil {
-				fmt.Println(err)
-				return err
-			}
-			var parsedService struct {
-				Tag string
-			}
-			if err = json.Unmarshal(jsonb, &parsedService); err != nil {
-				fmt.Println(err)
-				return err
-			}
-			if parsedService.Tag != "" {
-				fmt.Printf("updating service %s from %s to %s\n", p.service, parsedService.Tag, p.version)
-				parsedService.Tag = p.version
-				internalRepo.Podspec.Services[index] = parsedService
-				break
-			}
-
-		}
-		return p.loadedYaml.Content[keyIndex].Content[i+1].Encode(&internalRepo)
-	}
-	return nil
-}
-
-func (p *Parser) UpdateExternalRepo(keyIndex int, i int) (bool, error) {
-	var externalRepo struct {
-		Version string `yaml:"serviceVersion"`
-	}
-	content := p.loadedYaml.Content[keyIndex].Content[i+1]
+func (p *Parser) GetRepo(content *yaml.Node) (Repo, error) {
+	var externalRepo ExternalRepo
 	err := content.Decode(&externalRepo)
-	if err == nil && externalRepo.Version != "" {
-		fmt.Printf("updating service %s from %s to %s\n", p.service, externalRepo.Version, p.version)
-		externalRepo.Version = p.version
-		err = p.loadedYaml.Content[keyIndex].Content[i+1].Encode(&externalRepo)
-		return err != nil, err
+
+	if err == nil && externalRepo.GetVersion() != "" {
+		return &externalRepo, nil
 	}
-	return false, nil
+
+	var internalRepo InternalRepo
+	err = content.Decode(&internalRepo)
+	if err != nil {
+		return nil, err
+	}
+	if internalRepo.GetVersion() == "" {
+		return nil, errors.New("no version tag found")
+	}
+
+	return &internalRepo, err
 }
 
-func (p *Parser) CreateServiceNodes() ([]*yaml.Node, error) {
-	repo := ExternalRepo{Version: p.version}
+func (p *Parser) CreateServiceNodes(s *models.Service) ([]*yaml.Node, error) {
+	repo := ExternalRepo{Version: s.Version}
 	node := yaml.Node{Kind: yaml.MappingNode}
 	err := node.Encode(repo)
 	if err != nil {
 		return nil, err
 	}
-	nodes := []*yaml.Node{{Value: p.service, Kind: yaml.ScalarNode}, &node}
+	nodes := []*yaml.Node{{Value: s.HLMName, Kind: yaml.ScalarNode}, &node}
 	return nodes, nil
+}
+
+type Repo interface {
+	UpdateVersion(string)
+	GetVersion() string
+}
+
+type InternaLService struct {
+	Tag string
+}
+
+type InternalRepo struct {
+	Podspec struct {
+		Services map[string]interface{} `yaml:"containers"`
+	} `yaml:"podspec"`
+}
+
+func (i *InternalRepo) UpdateVersion(version string) {
+	for index, service := range i.Podspec.Services {
+
+		var parsedService InternaLService
+		err := mapstructure.Decode(service, &parsedService)
+		if err == nil && parsedService.Tag != "" {
+			parsedService.Tag = version
+			i.Podspec.Services[index] = parsedService
+		}
+	}
+}
+
+func (i *InternalRepo) GetVersion() string {
+	for _, service := range i.Podspec.Services {
+
+		var parsedService InternaLService
+		err := mapstructure.Decode(service, &parsedService)
+		if err == nil && parsedService.Tag != "" {
+			return parsedService.Tag
+		}
+	}
+	return ""
 }
 
 type ExternalRepo struct {
 	Version string `yaml:"serviceVersion"`
+}
+
+func (e *ExternalRepo) UpdateVersion(version string) {
+	e.Version = version
+}
+
+func (e *ExternalRepo) GetVersion() string {
+	return e.Version
 }
 
 func (p Parser) GetContent() ([]byte, error) {

@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal"
-	"github.com/adam-putland/divido-cli/internal/ui"
+	"github.com/adam-putland/divido-cli/internal/util"
 	"github.com/sarulabs/di"
 	"os"
 
@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 }
 
 func Run(ctx context.Context, app di.Container) error {
-	index, _, err := ui.Select("Select Option", options)
+	index, _, err := util.Select("Select Option", options)
 	if err != nil {
 		return fmt.Errorf("select failed %v", err)
 	}
@@ -61,7 +61,7 @@ func Run(ctx context.Context, app di.Container) error {
 	case 0:
 		errUI = ServiceUI(ctx, app)
 	case 1:
-		HelmUI(app)
+		errUI = HelmUI(ctx, app)
 	case 2:
 		errUI = EnvUI(ctx, app)
 	case 3:

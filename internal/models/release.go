@@ -3,6 +3,14 @@ package models
 import "fmt"
 
 type Releases []*Release
+type Versions []string
+
+type Release struct {
+	Name      string
+	Version   string
+	Changelog string
+	URL       string
+}
 
 func (releases Releases) String() string {
 	var str string
@@ -12,7 +20,7 @@ func (releases Releases) String() string {
 	return str
 }
 
-func (releases Releases) Versions() []string {
+func (releases Releases) Versions() Versions {
 	versions := make([]string, 0, len(releases))
 	for _, r := range releases {
 		versions = append(versions, r.Version)
@@ -20,13 +28,12 @@ func (releases Releases) Versions() []string {
 	return versions
 }
 
-type Release struct {
-	Name      string
-	Version   string
-	Changelog string
-	URL       string
+func (release Release) String() string {
+	return fmt.Sprintf(" Name: %s\n latest version: %s\n URL: %s", release.Name, release.Version, release.URL)
 }
 
-func (release Release) Info() string {
-	return fmt.Sprintf("service name: %s\nlatest version: %s\nURL: %s\n", release.Name, release.Version, release.URL)
+func (versions *Versions) Remove(versionIndex int) {
+	copy((*versions)[versionIndex:], (*versions)[versionIndex+1:]) // shift valuesafter the indexwith a factor of 1
+	(*versions)[len(*versions)-1] = ""                             // remove element
+	*versions = (*versions)[:len(*versions)-1]
 }
