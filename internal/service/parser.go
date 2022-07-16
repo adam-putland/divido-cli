@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/mitchellh/mapstructure"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -39,64 +37,75 @@ func (p *Parser) Load() (models.Services, error) {
 		p.loadedYaml = *p.loadedYaml.Content[0]
 	}
 
+	startingNode := p.loadedYaml
+	if len(p.loadedYaml.Content) > 0 && p.loadedYaml.Content[0].Kind == yaml.ScalarNode && p.loadedYaml.Content[0].Value == "services" {
+		startingNode = *p.loadedYaml.Content[1]
+	}
+
 	services := make(map[string]*models.Service)
 
-	for keyIndex := 0; keyIndex < len(p.loadedYaml.Content); keyIndex++ {
-		if p.loadedYaml.Content[keyIndex].Kind == yaml.MappingNode {
-			for i := 0; i < len(p.loadedYaml.Content[keyIndex].Content); i++ {
-				key := strings.ReplaceAll(p.loadedYaml.Content[keyIndex].Content[i].Value, " ", "")
-				if key != "" {
-					content := p.loadedYaml.Content[keyIndex].Content[i+1]
-					repo, err := p.GetRepo(content)
-					if err != nil {
-						return nil, err
-					}
-					services[key] = &models.Service{HLMName: key, Release: models.Release{Version: repo.GetVersion()}}
+	if startingNode.Kind == yaml.MappingNode {
+		for i := 0; i < len(startingNode.Content); i++ {
+			key := strings.ReplaceAll(startingNode.Content[i].Value, " ", "")
+			if key != "" {
+				content := startingNode.Content[i+1]
+				repo, err := p.GetRepo(content)
+				if err != nil {
+					return nil, err
 				}
+				services[key] = &models.Service{HLMName: key, Release: models.Release{Version: repo.GetVersion()}}
 			}
 		}
 	}
-
 	return services, nil
 }
 
 func (p *Parser) Replace(services models.Services) error {
 
-	for keyIndex := 0; keyIndex < len(p.loadedYaml.Content); keyIndex++ {
-		if p.loadedYaml.Content[keyIndex].Kind == yaml.MappingNode {
-			for i := 0; i < len(p.loadedYaml.Content[keyIndex].Content); i++ {
-				key := strings.ReplaceAll(p.loadedYaml.Content[keyIndex].Content[i].Value, " ", "")
-				if service, ok := services[key]; ok {
+	startingNode := p.loadedYaml
+	if len(p.loadedYaml.Content) > 0 && p.loadedYaml.Content[0].Kind == yaml.ScalarNode && p.loadedYaml.Content[0].Value == "services" {
+		startingNode = *p.loadedYaml.Content[1]
+	}
 
-					content := p.loadedYaml.Content[keyIndex].Content[i+1]
-					repo, err := p.GetRepo(content)
-					if err != nil {
-						return err
-					}
+	if startingNode.Kind == yaml.MappingNode {
+		for i := 0; i < len(startingNode.Content); i++ {
+			key := strings.ReplaceAll(startingNode.Content[i].Value, " ", "")
+			if service, ok := services[key]; ok {
 
-					repo.UpdateVersion(service.Version)
-					if err = content.Encode(&repo); err != nil {
-						return err
-					}
-					fmt.Printf("updated service %s from %s to %s\n", service.Name, repo.GetVersion(), service.Version)
-
-					delete(services, key)
-					break
+				content := startingNode.Content[i+1]
+				repo, err := p.GetRepo(content)
+				if err != nil {
+					return err
 				}
-			}
 
-			// if the service is not in the document it will be created
-			if len(services) > 0 {
-				for _, service := range services {
-					nodes, err := p.CreateServiceNodes(service)
-					if err != nil {
-						return err
-					}
-					p.loadedYaml.Content[keyIndex].Content = append(p.loadedYaml.Content[keyIndex].Content, nodes...)
+				repo.UpdateVersion(service.Version)
+				if err = content.Encode(&repo); err != nil {
+					return err
 				}
+				fmt.Printf("updated service %s from %s to %s\n", service.Name, repo.GetVersion(), service.Version)
+
+				delete(services, key)
 
 			}
 		}
+	}
+
+	// if the service is not in the document it will be created
+	if len(services) > 0 {
+		for _, service := range services {
+			nodes, err := p.CreateServiceNodes(service)
+			if err != nil {
+				return err
+			}
+			startingNode.Content = append(startingNode.Content, nodes...)
+		}
+
+	}
+
+	if len(p.loadedYaml.Content) > 0 && p.loadedYaml.Content[0].Kind == yaml.ScalarNode && p.loadedYaml.Content[0].Value == "services" {
+		p.loadedYaml.Content[1] = &startingNode
+	} else {
+		p.loadedYaml = startingNode
 	}
 
 	return nil
@@ -193,16 +202,4 @@ func (p Parser) GetContent() ([]byte, error) {
 		return nil, err
 	}
 	return b.Bytes(), nil
-}
-
-func (p *Parser) SaveFile(filename string) error {
-	data, err := yaml.Marshal(&p.loadedYaml)
-	if err != nil {
-		return err
-	}
-
-	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(filename, data, 0644)
 }

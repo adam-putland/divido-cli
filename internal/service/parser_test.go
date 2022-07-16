@@ -7,66 +7,55 @@ import (
 )
 
 func TestParser_Replace(t *testing.T) {
-	type fields struct {
-		version string
-		service string
-		yaml    string
-	}
+
 	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-		want    string
+		services map[string]*models.Service
+		yaml     string
+		name     string
+		wantErr  bool
+		want     string
 	}{
-		{name: "new_version", fields: struct {
-			version string
-			service string
-			yaml    string
-		}{version: "v1.0.7", service: "applicantCommunicationApi", yaml: `services:
+		{
+			name:     "new_version",
+			services: map[string]*models.Service{"applicantCommunicationApi": {HLMName: "applicantCommunicationApi", Release: models.Release{Version: "v1.0.7"}}},
+			yaml: `services:
   applicantCommunicationApi:
     serviceVersion: v1.0.6
-`}, wantErr: false, want: `services:
+`,
+			wantErr: false,
+			want: `services:
   applicantCommunicationApi:
     serviceVersion: v1.0.7
 `},
-		{name: "keep_comments", fields: struct {
-			version string
-			service string
-			yaml    string
-		}{version: "v1.0.7", service: "applicantCommunicationApi", yaml: `services:	
+		{name: "keep_comments", services: map[string]*models.Service{"applicantCommunicationApi": {HLMName: "applicantCommunicationApi", Release: models.Release{Version: "v1.0.7"}}}, yaml: `services:	
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
-`}, wantErr: false, want: `services:
+`, wantErr: false, want: `services:
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.7
 `},
-		{name: "lower_version_does_update", fields: struct {
-			version string
-			service string
-			yaml    string
-		}{version: "v1.0.4", service: "applicantCommunicationApi", yaml: `services:	
+		{name: "lower_version_does_update", services: map[string]*models.Service{"applicantCommunicationApi": {HLMName: "applicantCommunicationApi", Release: models.Release{Version: "v1.0.4"}}},
+			yaml: `services:	
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
-`}, wantErr: false, want: `services:
+`, wantErr: false, want: `services:
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.4
-`},
-		{name: "service_not_found", fields: struct {
-			version string
-			service string
-			yaml    string
-		}{version: "v1.0.4", service: "test", yaml: `services:	
+`}, {
+			name:     "service_not_found",
+			services: map[string]*models.Service{"test": {HLMName: "test", Release: models.Release{Version: "v1.0.4"}}},
+			yaml: `services:	
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
   # api
   api:
     serviceVersion: v1.0.4
-`}, wantErr: false, want: `services:
+`, wantErr: false, want: `services:
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
@@ -76,24 +65,22 @@ func TestParser_Replace(t *testing.T) {
   test:
     serviceVersion: v1.0.4
 `},
-		{name: "string_version", fields: struct {
-			version string
-			service string
-			yaml    string
-		}{version: "1234", service: "applicantCommunicationApi", yaml: `services:	
+		{
+			name:     "string_version",
+			services: map[string]*models.Service{"applicantCommunicationApi": {HLMName: "applicantCommunicationApi", Release: models.Release{Version: "1234"}}},
+			yaml: `services:	
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: v1.0.6
-`}, wantErr: false, want: `services:
+`,
+			wantErr: false,
+			want: `services:
   # applicant-communication-api
   applicantCommunicationApi:
     serviceVersion: "1234"
 `},
-		{name: "internal_repo", fields: struct {
-			version string
-			service string
-			yaml    string
-		}{version: "1234", service: "application-api", yaml: `services:	
+		{name: "internal_repo", services: map[string]*models.Service{"application-api": {HLMName: "application-api", Release: models.Release{Version: "1234"}}},
+			yaml: `services:	
   application-api:
     podspec:
       containers:
@@ -102,7 +89,11 @@ func TestParser_Replace(t *testing.T) {
         nginx:
           env:
             DIVIDO_NGINX_CLIENT_MAX_BODY_SIZE: 10m
-`}, wantErr: false, want: `services:
+  x:
+    serviceVersion: v1.0.9
+`,
+			wantErr: false,
+			want: `services:
   application-api:
     podspec:
       containers:
@@ -111,23 +102,50 @@ func TestParser_Replace(t *testing.T) {
         nginx:
           env:
             DIVIDO_NGINX_CLIENT_MAX_BODY_SIZE: 10m
+  x:
+    serviceVersion: v1.0.9
+`},
+		{
+			name:     "new_version_no_top_service_elem",
+			services: map[string]*models.Service{"applicantCommunicationApi": {HLMName: "applicantCommunicationApi", Release: models.Release{Version: "v1.0.7"}}},
+			yaml: `applicantCommunicationApi:
+  serviceVersion: v1.0.6
+`,
+			wantErr: false,
+			want: `applicantCommunicationApi:
+  serviceVersion: v1.0.7
+`},
+		{
+			name: "multiple_services_update",
+			services: map[string]*models.Service{"applicantCommunicationApi": {HLMName: "applicantCommunicationApi", Release: models.Release{Version: "v1.0.5"}},
+				"test": {HLMName: "test", Release: models.Release{Version: "v1.0.7"}}},
+			yaml: `applicantCommunicationApi:
+  serviceVersion: v1.0.4
+test:
+  serviceVersion: v1.0.6
+x:
+  serviceVersion: v1.0.9
+`,
+			wantErr: false,
+			want: `applicantCommunicationApi:
+  serviceVersion: v1.0.5
+test:
+  serviceVersion: v1.0.7
+x:
+  serviceVersion: v1.0.9
 `},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			p := NewParser([]byte(tt.fields.yaml))
+			p := NewParser([]byte(tt.yaml))
 
 			_, err := p.Load()
 			if err != nil {
 				t.Error(err)
 			}
 
-			services := make(map[string]*models.Service)
-
-			services[tt.fields.service] = &models.Service{HLMName: tt.fields.service, Release: models.Release{Version: tt.fields.version}}
-
-			if err = p.Replace(services); (err != nil) != tt.wantErr {
+			if err = p.Replace(tt.services); (err != nil) != tt.wantErr {
 				t.Errorf("Run() error = %v, wantErr %v", err, tt.wantErr)
 
 			}
