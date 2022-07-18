@@ -3,6 +3,7 @@ package models
 type Config struct {
 	Platforms []PlatformConfig
 	Github    GithubConfig
+	Services  map[string]string
 }
 
 type GithubConfig struct {
@@ -21,6 +22,11 @@ type PlatformConfig struct {
 	HelmChartRepo string `mapstructure:"hlm"`
 	Envs          []EnvironmentConfig
 	DirectCommit  bool
+}
+
+type ServicesConfig struct {
+	Repo          string
+	HelmChartRepo string `mapstructure:"hlmName"`
 }
 
 type EnvironmentConfig struct {

@@ -1,6 +1,9 @@
 package models
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 type Releases []*Release
 type Versions []string
@@ -10,6 +13,7 @@ type Release struct {
 	Version   string
 	Changelog string
 	URL       string
+	Date      time.Time
 }
 
 func (releases Releases) String() string {
@@ -28,8 +32,17 @@ func (releases Releases) Versions() Versions {
 	return versions
 }
 
+func (releases Releases) GetReleaseByVersion(version string) *Release {
+	for _, r := range releases {
+		if r.Version == version {
+			return r
+		}
+	}
+	return nil
+}
+
 func (release Release) String() string {
-	return fmt.Sprintf(" Name: %s\n latest version: %s\n URL: %s", release.Name, release.Version, release.URL)
+	return fmt.Sprintf(" Name: %s\n latest version: %s\n URL: %s\n", release.Name, release.Version, release.URL)
 }
 
 func (versions *Versions) Remove(versionIndex int) {

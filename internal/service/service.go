@@ -6,14 +6,21 @@ import (
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/util/github"
-	"github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/iancoleman/strcase"
+	"log"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 )
 
 var (
 	_defaultChartVersionFilePath  = "helm/platform/CURRENT_CHART_VERSION"
 	_defaultHelmOverridesFilePath = "helm/platform/versions.yaml"
 	_defaultChatServicesFilePath  = "charts/services/values.yaml"
+	_defaultReleasesPath          = "./releases"
+	_defaultReleaseFileName       = "JIRA_TICKET_TEXT.txt"
 )
 
 type Service struct {
@@ -32,21 +39,12 @@ func New(
 }
 
 func (s *Service) GetChangelog(ctx context.Context, name string, version1 string, version2 string) (string, error) {
-	resp, err := s.gh.GetCommits(ctx, s.config.Github.Org, name, version1, version2)
+	resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, name, version1, version2)
 	if err != nil {
 		return "", err
 	}
 
-	var builder strings.Builder
-	builder.WriteString("changelog:\n")
-	builder.Grow(len(resp.Commits))
-	for _, commit := range resp.Commits {
-		_, err := fmt.Fprintf(&builder, "%s\n", *commit.Commit.Message)
-		if err != nil {
-			return "", err
-		}
-	}
-	return builder.String(), nil
+	return resp.Body, nil
 }
 
 func (s *Service) GetLatest(ctx context.Context, name string) (*models.Release, error) {
@@ -76,6 +74,7 @@ func (s *Service) GetRepoReleases(ctx context.Context, name string) (models.Rele
 			Version:   *repo.TagName,
 			Changelog: *repo.Body,
 			URL:       *repo.HTMLURL,
+			Date:      repo.PublishedAt.Time,
 		})
 	}
 
@@ -198,9 +197,16 @@ func (s *Service) GetPlat(ctx context.Context, platRepo string) (*models.Platfor
 		return nil, err
 	}
 
-	plat := models.Platform{Release: *latest}
+	plat := models.Platform{Release: latest}
 
-	plat.Services, err = s.gh.GetContent(ctx, s.config.Github.Org, platRepo, _defaultChatServicesFilePath, latest.Version)
+	content, err := s.gh.GetContent(ctx, s.config.Github.Org, platRepo, _defaultChatServicesFilePath, latest.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	parser := NewParser(content)
+
+	plat.Services, err = parser.Load()
 	if err != nil {
 		return nil, err
 	}
@@ -208,46 +214,144 @@ func (s *Service) GetPlat(ctx context.Context, platRepo string) (*models.Platfor
 	return &plat, nil
 }
 
-func (s *Service) ComparePlatVersions(ctx context.Context, repo string, version string, version2 string) (*models.Comparer, error) {
+func (s *Service) ComparePlatReleasesByVersion(ctx context.Context, platConfig *models.PlatformConfig, releases models.Releases, version string, version2 string) (*models.Comparer, error) {
+	resultsChan := make(chan *models.Platform, 2)
 
-	resultsChan := make(chan string)
+	for _, v := range []string{version, version2} {
+		go func(version string) {
+			content, err := s.gh.GetContent(ctx, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, version)
+			if err != nil {
+				resultsChan <- nil
+			}
 
-	changelog, err := s.GetChangelog(ctx, repo, version, version2)
-	if err != nil {
-		return nil, err
+			parser := NewParser(content)
+
+			services, err := parser.Load()
+			if err != nil {
+				resultsChan <- nil
+			}
+
+			resultsChan <- &models.Platform{
+				Release:  releases.GetReleaseByVersion(version),
+				Services: services,
+			}
+		}(v)
 	}
 
-	go func() {
-		content, err := s.gh.GetContent(ctx, s.config.Github.Org, repo, _defaultChatServicesFilePath, version)
-		if err != nil {
-			resultsChan <- ""
-		}
-		resultsChan <- string(content)
-	}()
-
-	go func() {
-		content, err := s.gh.GetContent(ctx, s.config.Github.Org, repo, _defaultChatServicesFilePath, version2)
-		if err != nil {
-			resultsChan <- ""
-		}
-		resultsChan <- string(content)
-	}()
-
-	comparer := models.Comparer{Changelog: changelog}
-	var results []string
+	var results []*models.Platform
 	for {
 		result := <-resultsChan
-		results = append(results, result)
 
-		// if we've reached the expected amount of urls then stop
+		if result == nil {
+			return nil, errors.New("could not get content for specified versions")
+		}
+
+		results = append(results, result)
+		// if we've reached the expected amount of results then stop
 		if len(results) == 2 {
 			break
 		}
 	}
 
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffMain(results[0], results[1], false)
-	comparer.Diff = dmp.DiffPrettyText(diffs)
+	return models.Compare(results[0], results[1]), nil
+}
 
-	return &comparer, nil
+func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Comparer) (map[string]string, error) {
+
+	changelogs := make(map[string]string, len(diff.Changed)+len(diff.Insert))
+	for serviceName, changed := range diff.Changed {
+
+		repoName := strcase.ToKebab(serviceName)
+		for regex, repo := range s.config.Services {
+			if matched, _ := regexp.MatchString(regex, serviceName); matched {
+				repoName = repo
+			}
+		}
+		changelog, err := s.GetChangelog(ctx, repoName, changed.Service.Version, changed.Version)
+		if err != nil {
+			return nil, err
+		}
+		changelogs[serviceName] = changelog
+	}
+
+	for serviceName, service := range diff.Insert {
+
+		repoName := strcase.ToKebab(serviceName)
+		for regex, repo := range s.config.Services {
+			if matched, _ := regexp.MatchString(regex, serviceName); matched {
+				repoName = repo
+			}
+		}
+		releases, err := s.GetRepoReleases(ctx, repoName)
+		if err != nil {
+			return nil, err
+		}
+
+		var builder strings.Builder
+		release := releases.GetReleaseByVersion(service.Version)
+		builder.WriteString(release.Changelog)
+
+		for _, r := range releases {
+			if r.Date.Before(release.Date) {
+				builder.WriteString(r.Changelog)
+			}
+		}
+
+		changelogs[serviceName] = builder.String()
+
+	}
+
+	return changelogs, nil
+}
+
+func (s Service) ExportRelease(ctx context.Context, diff *models.Comparer) error {
+
+	if _, err := os.Stat(_defaultReleasesPath); errors.Is(err, os.ErrNotExist) {
+		err := os.Mkdir(_defaultReleasesPath, os.ModePerm)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+
+	releaseFilePath := fmt.Sprintf("%s/release-%s-%s-%s", _defaultReleasesPath, diff.InitialVersion, diff.FinalVersion, time.Now().UTC().Format("02-01-06"))
+	if _, err := os.Stat(releaseFilePath); errors.Is(err, os.ErrNotExist) {
+		if err := os.Mkdir(releaseFilePath, os.ModePerm); err != nil {
+			log.Println(err)
+		}
+	}
+
+	f, err := os.OpenFile(filepath.Join(releaseFilePath, _defaultReleaseFileName), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	diff.DisableColor = true
+	if _, err := f.WriteString(diff.String()); err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	changelogs, err := s.GetChangelogsFromDiff(ctx, diff)
+	if err != nil {
+		return err
+	}
+
+	for service, changelog := range changelogs {
+
+		filename := fmt.Sprintf("%s_changelog.txt", service)
+		f, err := os.OpenFile(filepath.Join(releaseFilePath, filename), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if _, err := f.WriteString(changelog); err != nil {
+			return err
+		}
+		if err := f.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
+
 }

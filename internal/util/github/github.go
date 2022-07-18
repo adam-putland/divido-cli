@@ -87,8 +87,11 @@ func (c GithubClient) Commit(ctx context.Context, data []byte, sourceOwner strin
 	return err
 }
 
-func (c *GithubClient) GetCommits(ctx context.Context, org string, repo string, base string, head string) (*github.CommitsComparison, error) {
-	res, _, err := c.Client.Repositories.CompareCommits(ctx, org, repo, base, head, nil)
+func (c *GithubClient) GetChangelog(ctx context.Context, org string, repo string, base string, head string) (*github.RepositoryReleaseNotes, error) {
+	res, _, err := c.Client.Repositories.GenerateReleaseNotes(ctx, org, repo, &github.GenerateNotesOptions{
+		TagName:         head,
+		PreviousTagName: github.String(base),
+	})
 	if err != nil {
 		return nil, err
 	}

@@ -53,7 +53,7 @@ func (p *Parser) Load() (models.Services, error) {
 				if err != nil {
 					return nil, err
 				}
-				services[key] = &models.Service{HLMName: key, Release: models.Release{Version: repo.GetVersion()}}
+				services[key] = &models.Service{HLMName: key, Release: models.Release{Name: key, Version: repo.GetVersion()}}
 			}
 		}
 	}

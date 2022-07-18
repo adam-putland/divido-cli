@@ -6,13 +6,14 @@ import (
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/service"
 	"github.com/adam-putland/divido-cli/internal/util"
+	"github.com/manifoldco/promptui"
 	"github.com/sarulabs/di"
 	"os"
 )
 
 var helmOptions = []string{
 	"Info",
-	"Bump Service(s)",
+	"Bump Service(s) (In development)",
 	"Compare Versions",
 	"Back",
 }
@@ -40,7 +41,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 		fmt.Println(err)
 	}
 
-	fmt.Print(latest)
+	fmt.Printf("Latest Release: \n%s", latest)
 
 	option, _, err := util.Select("Choose option", helmOptions)
 	if err != nil {
@@ -58,9 +59,9 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 		fmt.Println(plat)
 
 	case 1:
+		// TODO
 
 	case 2:
-
 		releases, err := s.GetRepoReleases(ctx, platConfig.HelmChartRepo)
 		if err != nil {
 			return fmt.Errorf("getting platform versions %w", err)
@@ -74,22 +75,69 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 		}
 
 		versions.Remove(fi)
-		_, sVersion, err := util.Select("Select last version", versions)
+		_, lVersion, err := util.Select("Select last version", versions)
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
 		}
 
-		diff, err := s.ComparePlatVersions(ctx, platConfig.HelmChartRepo, fVersion, sVersion)
+		diff, err := s.ComparePlatReleasesByVersion(ctx, platConfig, releases, fVersion, lVersion)
 		if err != nil {
 			return fmt.Errorf("comparing versions %w", err)
 		}
 		fmt.Println(diff)
+
+		err = VersionsUI(ctx, s, diff)
+		if err != nil {
+			return err
+		}
 
 	case 3:
 		return nil
 	}
 
 	return HelmOptionsUI(ctx, s, platConfig)
+}
 
+func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) error {
+
+	options := []string{
+		"Show Changelogs",
+		"Export Release",
+		"Create Release Ticket (In development)",
+		"Back",
+	}
+
+	option, _, err := util.Select("Choose option", options)
+	if err != nil {
+		fmt.Printf("Prompt failed %v", err)
+		os.Exit(1)
+	}
+
+	switch option {
+	case 0:
+		changelogs, err := s.GetChangelogsFromDiff(ctx, diff)
+		if err != nil {
+			return err
+		}
+
+		for key, changelog := range changelogs {
+			fmt.Printf("\nService: %s\n", key)
+			fmt.Println(changelog)
+		}
+	case 1:
+		err := s.ExportRelease(ctx, diff)
+		if err != nil {
+			fmt.Println(promptui.IconBad + " Release not exported")
+			return err
+		}
+		fmt.Println(promptui.IconGood + " Release exported")
+
+	case 2:
+
+	case 3:
+		return nil
+	}
+
+	return VersionsUI(ctx, s, diff)
 }

@@ -63,8 +63,8 @@
   ],
   "services": [
     {
-      "name": "",
-      "hlmName": ""
+      ".*PortalWebPub$": "portals-web-pub",
+      ".*GraphqlApi$": "graphql-apis"
     }
   ]
 
