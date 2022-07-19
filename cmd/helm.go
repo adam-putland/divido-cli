@@ -61,6 +61,43 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 		}
 		fmt.Println(plat)
 
+		services := make([]*models.Service, 0, len(plat.Services))
+		for _, ser := range plat.Services {
+			services = append(services, ser)
+		}
+
+		templates := &util.MultiSelectTemplates{
+			Label:      "{{ . }}",
+			Selected:   "\U00002388 {{ .Name | cyan }}: {{ .Version | cyan }}",
+			Unselected: "  {{ .Name | cyan }}: {{ .Version | cyan }}",
+			Help: fmt.Sprintf(`{{ "Use the arrow keys to navigate:" | faint }} {{ .NextKey | faint }} ` +
+				`{{ .PrevKey | faint }} {{ .PageDownKey | faint }} {{ .PageUpKey | faint }} ` +
+				`{{ if .Search }}{{ " (" | faint }}{{ .SearchKey | faint }} {{ "to search)" | faint }} {{ end }}` +
+				`{{ " (Press enter to quit)" | faint }}`),
+		}
+
+		searcher := func(input string, index int) bool {
+			s := services[index]
+			name := strings.Replace(strings.ToLower(s.Name), " ", "", -1)
+			input = strings.Replace(strings.ToLower(input), " ", "", -1)
+			return strings.Contains(name, input)
+		}
+
+		prompt := util.MultiSelect{
+			Label:     "Services:",
+			Items:     services,
+			Templates: templates,
+			Size:      8,
+			Searcher:  searcher,
+			HideHelp:  false,
+		}
+
+		_, err = prompt.Run()
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+
 	case 1:
 
 		err = BumpServicesUI(ctx, s, platConfig)

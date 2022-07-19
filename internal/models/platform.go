@@ -8,5 +8,5 @@ type Platform struct {
 }
 
 func (plat *Platform) String() string {
-	return fmt.Sprintf(" Plat name: %s\n latest version: %s\n URL: %s\n Services: \n%s", plat.Release.Name, plat.Release.Version, plat.Release.URL, plat.Services)
+	return fmt.Sprintf(" Plat name: %s\n latest version: %s\n URL: %s\n", plat.Release.Name, plat.Release.Version, plat.Release.URL)
 }

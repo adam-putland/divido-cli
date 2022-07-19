@@ -42,7 +42,16 @@ func (s Service) GetConfig() *models.Config {
 	return s.config
 }
 
-func (s *Service) GetChangelog(ctx context.Context, name string, version1 string, version2 string) (string, error) {
+func (s *Service) GetChangelog(ctx context.Context, name string, release1, release2 *models.Release) (string, error) {
+
+	version1 := release1.Version
+	version2 := release2.Version
+
+	if release1.Date.After(release2.Date) {
+		version1 = release2.Version
+		version2 = release1.Version
+	}
+
 	resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, name, version1, version2)
 	if err != nil {
 		return "", err
@@ -328,11 +337,13 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 				repoName = repo
 			}
 		}
-		changelog, err := s.GetChangelog(ctx, repoName, changed.Service.Version, changed.NewVersion)
+
+		resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, repoName, changed.Service.Version, changed.NewVersion)
 		if err != nil {
 			return nil, err
 		}
-		changelogs[serviceName] = changelog
+
+		changelogs[serviceName] = resp.Body
 	}
 
 	for serviceName, service := range diff.Insert {

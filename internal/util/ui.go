@@ -14,6 +14,16 @@ func Select(msg string, elems []string) (int, string, error) {
 	return prompt2.Run()
 }
 
+func SelectWithSearch(msg string, elems []string, searcher func(input string, index int) bool) (int, string, error) {
+	fmt.Println()
+	prompt2 := promptui.Select{
+		Label:    msg,
+		Items:    elems,
+		Searcher: searcher,
+	}
+	return prompt2.Run()
+}
+
 func SelectWithAdd(msg string, elems []string) (int, string, error) {
 	fmt.Println()
 	fmt.Println()

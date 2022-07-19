@@ -7,6 +7,7 @@ import (
 	"github.com/adam-putland/divido-cli/internal/util"
 	"github.com/sarulabs/di"
 	"os"
+	"strings"
 )
 
 var serviceOptions = []string{
@@ -41,11 +42,22 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 
 	switch option {
 	case 0:
-		versions, err := s.GetRepoReleases(ctx, serviceName)
+		releases, err := s.GetRepoReleases(ctx, serviceName)
 		if err != nil {
 			return fmt.Errorf("getting service versions %w", err)
 		}
-		fmt.Print(versions)
+
+		versions := releases.Versions()
+		_, _, err = util.SelectWithSearch("Versions", releases.Versions(), func(input string, index int) bool {
+			s := versions[index]
+			name := strings.Replace(strings.ToLower(s), " ", "", -1)
+			input = strings.Replace(strings.ToLower(input), " ", "", -1)
+			return strings.Contains(name, input)
+		})
+		if err != nil {
+			fmt.Printf("Prompt failed %v\n", err)
+			os.Exit(1)
+		}
 
 	case 1:
 
@@ -69,7 +81,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 			os.Exit(1)
 		}
 
-		changelog, err := s.GetChangelog(ctx, serviceName, fVersion, sVersion)
+		changelog, err := s.GetChangelog(ctx, serviceName, releases.GetReleaseByVersion(fVersion), releases.GetReleaseByVersion(sVersion))
 		if err != nil {
 			return fmt.Errorf("getting changelog %w", err)
 		}
