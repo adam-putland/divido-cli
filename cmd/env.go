@@ -20,7 +20,7 @@ var envOptions = []string{
 
 func EnvUI(ctx context.Context, app di.Container) error {
 	s := app.Get("service").(*service.Service)
-	config := app.Get("config").(*models.Config)
+	config := s.GetConfig()
 	platIndex, _, err := util.Select("Select platform", config.ListPlatform())
 	if err != nil {
 		fmt.Printf("Prompt failed %v", err)

@@ -68,5 +68,8 @@ func (c Config) GetPlatform(platformIndex int) *PlatformConfig {
 }
 
 func (p *PlatformConfig) GetEnvironment(envIndex int) *EnvironmentConfig {
+	if envIndex < 0 {
+		return nil
+	}
 	return &p.Envs[envIndex]
 }
