@@ -14,6 +14,17 @@ func Select(msg string, elems []string) (int, string, error) {
 	return prompt2.Run()
 }
 
+func SelectWithAdd(msg string, elems []string) (int, string, error) {
+	fmt.Println()
+	fmt.Println()
+	prompt2 := promptui.SelectWithAdd{
+		Label:    msg,
+		Items:    elems,
+		AddLabel: "Other",
+	}
+	return prompt2.Run()
+}
+
 func Prompt(msg string) (string, error) {
 	prompt := promptui.Prompt{
 		Label:    msg,

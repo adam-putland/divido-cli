@@ -108,6 +108,15 @@ func (c *GithubClient) GetReleases(ctx context.Context, org string, repo string)
 	return res, nil
 }
 
+func (c *GithubClient) GetRelease(ctx context.Context, org string, repo string, version string) (*github.RepositoryRelease, error) {
+	res, _, err := c.Client.Repositories.GetReleaseByTag(ctx, org, repo, version)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (c *GithubClient) GetLatestRelease(ctx context.Context, org string, repo string) (*github.RepositoryRelease, error) {
 	res, _, err := c.Client.Repositories.GetLatestRelease(ctx, org, repo)
 	if err != nil {

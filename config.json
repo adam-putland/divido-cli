@@ -64,7 +64,7 @@
   "services": [
     {
       ".*PortalWebPub$": "portals-web-pub",
-      ".*GraphqlApi$": "graphql-apis"
+      ".*GraphqlApi.*": "graphql-apis"
     }
   ]
 

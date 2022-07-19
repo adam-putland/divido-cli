@@ -416,3 +416,40 @@ func (s Service) ExportRelease(ctx context.Context, diff *models.Comparer) error
 	return nil
 
 }
+
+func (s Service) GetAvailableServiceReleases(ctx context.Context, service *models.Service) (models.Releases, error) {
+
+	repoName := strcase.ToKebab(service.Name)
+	for regex, repo := range s.config.Services {
+		if matched, _ := regexp.MatchString(regex, service.Name); matched {
+			repoName = repo
+		}
+	}
+
+	release, err := s.gh.GetRelease(ctx, s.config.Github.Org, repoName, service.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	repoReleases, err := s.gh.GetReleases(ctx, s.config.Github.Org, repoName)
+	if err != nil {
+		return nil, err
+	}
+	releases := make([]*models.Release, 0, len(repoReleases))
+
+	for _, repo := range repoReleases {
+
+		if release.CreatedAt.After(repo.CreatedAt.Time) || release.CreatedAt.Equal(*repo.CreatedAt) {
+			continue
+		}
+		releases = append(releases, &models.Release{
+			Name:      repoName,
+			Version:   *repo.TagName,
+			Changelog: *repo.Body,
+			URL:       *repo.HTMLURL,
+			Date:      repo.CreatedAt.Time,
+		})
+	}
+
+	return releases, err
+}

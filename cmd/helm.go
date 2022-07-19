@@ -11,6 +11,7 @@ import (
 	"github.com/sarulabs/di"
 	"os"
 	"strings"
+	"sync"
 )
 
 var helmOptions = []string{
@@ -149,8 +150,32 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platConfig *models.
 		fmt.Printf("Prompt failed %v", err)
 		os.Exit(1)
 	}
-	for _, option := range selected {
-		services[option].NewVersion, err = util.PromptWithDefault(services[option].Service.Name, services[option].Service.Version)
+
+	selectedServices := make([]*models.ServiceUpdated, 0, len(selected))
+
+	wg := sync.WaitGroup{}
+
+	rowRes := make(map[int][]string, len(selected))
+
+	for index, option := range selected {
+		selectedServices = append(selectedServices, services[option])
+		wg.Add(1)
+		go func(index int, service *models.ServiceUpdated, w *sync.WaitGroup) {
+
+			releases, _ := s.GetAvailableServiceReleases(ctx, service.Service)
+			rowRes[index] = releases.Versions()
+			w.Done()
+		}(index, services[option], &wg)
+	}
+	fmt.Println("....Obtaining available versions....")
+	wg.Wait()
+
+	for index := range selectedServices {
+		if versions, ok := rowRes[index]; ok && len(versions) > 0 {
+			_, selectedServices[index].NewVersion, err = util.SelectWithAdd(fmt.Sprintf("%s current (%s)", selectedServices[index].Service.Name, selectedServices[index].Service.Version), versions)
+		} else {
+			selectedServices[index].NewVersion, err = util.PromptWithDefault(selectedServices[index].Service.Name, selectedServices[index].Service.Version)
+		}
 		if err != nil {
 			fmt.Printf("Prompt failed %v", err)
 			os.Exit(1)
@@ -159,7 +184,7 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platConfig *models.
 
 	config := s.GetConfig()
 	githubDetails := github.WithBumpServices(&config.Github)
-	return GithubUI(ctx, s, githubDetails, platConfig, services)
+	return GithubUI(ctx, s, githubDetails, platConfig, selectedServices)
 
 }
 
