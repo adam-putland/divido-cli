@@ -118,7 +118,11 @@ func (s Service) GetEnv(ctx context.Context, platIndex, envIndex int) (*models.E
 			return nil, err
 		}
 
-		environment.Overrides = content
+		overrides, err := NewParser(content).Load()
+		if err != nil {
+			return nil, err
+		}
+		environment.Overrides = overrides
 		return &environment, nil
 	}
 
@@ -129,8 +133,13 @@ func (s Service) GetEnv(ctx context.Context, platIndex, envIndex int) (*models.E
 		return nil, err
 	}
 
-	if overrides, err := s.gh.GetContent(ctx, s.config.Github.Org,
+	if content, err := s.gh.GetContent(ctx, s.config.Github.Org,
 		env.Repo, _defaultHelmOverridesFilePath, s.config.Github.MainBranch); err == nil {
+
+		overrides, err := NewParser(content).Load()
+		if err != nil {
+			return nil, err
+		}
 		environment.Overrides = overrides
 	}
 	return &environment, nil
@@ -145,12 +154,16 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 
 	content, err := s.gh.GetContent(ctx, s.config.Github.Org,
 		plat.HelmChartRepo, _defaultChatServicesFilePath, env.GetHCVersion())
-
 	if err != nil {
 		return err
 	}
 
-	env.Services = content
+	services, err := NewParser(content).Load()
+	if err != nil {
+		return err
+	}
+
+	env.Services = services
 	return nil
 }
 
@@ -176,7 +189,6 @@ func (s *Service) UpdateHelmVersion(ctx context.Context, env *models.Environment
 }
 
 func (s *Service) GetHelmVersions(ctx context.Context, env *models.Environment, platIndex int) (models.Releases, error) {
-
 	plat := s.config.GetPlatform(platIndex)
 	if plat == nil {
 		return nil, errors.New("could not get platform")

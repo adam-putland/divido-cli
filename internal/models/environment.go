@@ -8,12 +8,12 @@ import (
 type Environment struct {
 	EnvironmentConfig
 	HelmChartVersion string
-	Overrides        []byte
-	Services         []byte
+	Overrides        Services
+	Services         Services
 }
 
 func (env Environment) String() string {
-	return fmt.Sprintf(" helm version: %s\n overrides: \n%s", env.HelmChartVersion, env.Overrides)
+	return fmt.Sprintf("Name: %s\nhelm version: %s\n", env.Name, env.HelmChartVersion)
 }
 
 func (env Environment) GetHCVersion() string {
