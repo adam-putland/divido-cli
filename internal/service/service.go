@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/util/github"
-	"github.com/iancoleman/strcase"
+	"github.com/gobeam/stringy"
 	"log"
 	"os"
 	"path/filepath"
@@ -303,6 +303,7 @@ func (s *Service) ComparePlatReleasesByVersion(ctx context.Context, platConfig *
 		go func(version string) {
 			content, err := s.gh.GetContent(ctx, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, version)
 			if err != nil {
+				fmt.Println(err)
 				resultsChan <- nil
 			}
 
@@ -310,6 +311,7 @@ func (s *Service) ComparePlatReleasesByVersion(ctx context.Context, platConfig *
 
 			services, err := parser.Load()
 			if err != nil {
+				fmt.Println(err)
 				resultsChan <- nil
 			}
 
@@ -343,29 +345,19 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 	changelogs := make(map[string]string, len(diff.Changed)+len(diff.Insert))
 	for serviceName, changed := range diff.Changed {
 
-		repoName := strcase.ToKebab(serviceName)
-		for regex, repo := range s.config.Services {
-			if matched, _ := regexp.MatchString(regex, serviceName); matched {
-				repoName = repo
-			}
-		}
+		repoName := s.ServiceNameToKebabCase(serviceName)
 
 		resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, repoName, changed.Service.Version, changed.NewVersion)
 		if err != nil {
 			return nil, err
 		}
 
-		changelogs[serviceName] = resp.Body
+		changelogs[repoName] = resp.Body
 	}
 
 	for serviceName, service := range diff.Insert {
 
-		repoName := strcase.ToKebab(serviceName)
-		for regex, repo := range s.config.Services {
-			if matched, _ := regexp.MatchString(regex, serviceName); matched {
-				repoName = repo
-			}
-		}
+		repoName := s.ServiceNameToKebabCase(serviceName)
 		releases, err := s.GetRepoReleases(ctx, repoName)
 		if err != nil {
 			return nil, err
@@ -381,7 +373,7 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 			}
 		}
 
-		changelogs[serviceName] = builder.String()
+		changelogs[repoName] = builder.String()
 
 	}
 
@@ -442,12 +434,7 @@ func (s Service) ExportRelease(ctx context.Context, diff *models.Comparer) error
 
 func (s Service) GetAvailableServiceReleases(ctx context.Context, service *models.Service) (models.Releases, error) {
 
-	repoName := strcase.ToKebab(service.Name)
-	for regex, repo := range s.config.Services {
-		if matched, _ := regexp.MatchString(regex, service.Name); matched {
-			repoName = repo
-		}
-	}
+	repoName := s.ServiceNameToKebabCase(service.Name)
 
 	release, err := s.gh.GetRelease(ctx, s.config.Github.Org, repoName, service.Version)
 	if err != nil {
@@ -475,4 +462,14 @@ func (s Service) GetAvailableServiceReleases(ctx context.Context, service *model
 	}
 
 	return releases, err
+}
+
+func (s Service) ServiceNameToKebabCase(serviceName string) string {
+	repoName := stringy.New(serviceName).KebabCase().Get()
+	for regex, repo := range s.config.Services {
+		if matched, _ := regexp.MatchString(regex, serviceName); matched {
+			repoName = repo
+		}
+	}
+	return strings.ToLower(repoName)
 }

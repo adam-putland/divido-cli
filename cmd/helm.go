@@ -324,7 +324,7 @@ func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) 
 		}
 
 		for key, changelog := range changelogs {
-			fmt.Printf("\nService: %s\n", key)
+			fmt.Printf("\nService Repo: %s\n", key)
 			fmt.Println(changelog)
 		}
 	case 1:

@@ -4,9 +4,9 @@ go 1.18
 
 require (
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
+	github.com/gobeam/stringy v0.0.5
 	github.com/google/go-github/v45 v45.1.0
 	github.com/gorilla/mux v1.8.0
-	github.com/iancoleman/strcase v0.2.0
 	github.com/juju/ansiterm v1.0.0
 	github.com/manifoldco/promptui v0.9.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d

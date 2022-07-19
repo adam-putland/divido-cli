@@ -78,12 +78,13 @@ func (p *Parser) Replace(services models.Services) error {
 					return err
 				}
 
-				repo.UpdateVersion(service.Version)
-				if err = content.Encode(&repo); err != nil {
-					return err
+				if repo.GetVersion() != service.Version {
+					repo.UpdateVersion(service.Version)
+					if err = content.Encode(&repo); err != nil {
+						return err
+					}
+					fmt.Printf("updated service %s from %s to %s\n", service.Name, repo.GetVersion(), service.Version)
 				}
-				fmt.Printf("updated service %s from %s to %s\n", service.Name, repo.GetVersion(), service.Version)
-
 				delete(services, key)
 
 			}
@@ -124,9 +125,6 @@ func (p *Parser) getRepo(content *yaml.Node) (Repo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if internalRepo.GetVersion() == "" {
-		return nil, errors.New("no version tag found")
-	}
 
 	return &internalRepo, err
 }
@@ -147,10 +145,10 @@ type Repo interface {
 	GetVersion() string
 }
 
-type InternaLService struct {
-	Tag string
+type InternalService struct {
+	Tag     string
+	Version string
 }
-
 type InternalRepo struct {
 	Podspec struct {
 		Services map[string]interface{} `yaml:"containers"`
@@ -160,19 +158,27 @@ type InternalRepo struct {
 func (i *InternalRepo) UpdateVersion(version string) {
 	for index, service := range i.Podspec.Services {
 
-		var parsedService InternaLService
+		var parsedService InternalService
 		err := mapstructure.Decode(service, &parsedService)
-		if err == nil && parsedService.Tag != "" {
-			parsedService.Tag = version
+		if err == nil {
+			if parsedService.Tag != "" {
+				parsedService.Tag = version
+				i.Podspec.Services[index] = parsedService
+			}
+			if parsedService.Tag != "" {
+				parsedService.Tag = version
+				i.Podspec.Services[index] = parsedService
+			}
 			i.Podspec.Services[index] = parsedService
 		}
+
 	}
 }
 
 func (i *InternalRepo) GetVersion() string {
 	for _, service := range i.Podspec.Services {
 
-		var parsedService InternaLService
+		var parsedService InternalService
 		err := mapstructure.Decode(service, &parsedService)
 		if err == nil && parsedService.Tag != "" {
 			return parsedService.Tag
