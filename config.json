@@ -3,7 +3,7 @@
     "org": "dividohq",
     "preCommitMessage": "chore(autocommit)",
     "commitMessageBumpHc": "Automatic bump hc",
-    "commitMessageOverrideService": "Automatic service override",
+    "commitMessageBumpService": "Automatic bump service(s)",
     "authorName": "dividotech",
     "authorEmail": "tech@divido.com",
     "mainBranch": "master"

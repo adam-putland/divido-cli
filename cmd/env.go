@@ -12,8 +12,8 @@ import (
 )
 
 var envOptions = []string{
-	"Services",
-	"Bump helm version",
+	"Show Services",
+	"Update Helm version",
 	"Back",
 }
 

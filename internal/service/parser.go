@@ -49,7 +49,7 @@ func (p *Parser) Load() (models.Services, error) {
 			key := strings.ReplaceAll(startingNode.Content[i].Value, " ", "")
 			if key != "" {
 				content := startingNode.Content[i+1]
-				repo, err := p.GetRepo(content)
+				repo, err := p.getRepo(content)
 				if err != nil {
 					return nil, err
 				}
@@ -73,7 +73,7 @@ func (p *Parser) Replace(services models.Services) error {
 			if service, ok := services[key]; ok {
 
 				content := startingNode.Content[i+1]
-				repo, err := p.GetRepo(content)
+				repo, err := p.getRepo(content)
 				if err != nil {
 					return err
 				}
@@ -93,7 +93,7 @@ func (p *Parser) Replace(services models.Services) error {
 	// if the service is not in the document it will be created
 	if len(services) > 0 {
 		for _, service := range services {
-			nodes, err := p.CreateServiceNodes(service)
+			nodes, err := p.createServiceNodes(service)
 			if err != nil {
 				return err
 			}
@@ -111,7 +111,7 @@ func (p *Parser) Replace(services models.Services) error {
 	return nil
 }
 
-func (p *Parser) GetRepo(content *yaml.Node) (Repo, error) {
+func (p *Parser) getRepo(content *yaml.Node) (Repo, error) {
 	var externalRepo ExternalRepo
 	err := content.Decode(&externalRepo)
 
@@ -131,7 +131,7 @@ func (p *Parser) GetRepo(content *yaml.Node) (Repo, error) {
 	return &internalRepo, err
 }
 
-func (p *Parser) CreateServiceNodes(s *models.Service) ([]*yaml.Node, error) {
+func (p *Parser) createServiceNodes(s *models.Service) ([]*yaml.Node, error) {
 	repo := ExternalRepo{Version: s.Version}
 	node := yaml.Node{Kind: yaml.MappingNode}
 	err := node.Encode(repo)

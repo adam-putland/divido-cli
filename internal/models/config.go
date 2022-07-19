@@ -7,14 +7,14 @@ type Config struct {
 }
 
 type GithubConfig struct {
-	Org                          string
-	AuthorName                   string
-	AuthorEmail                  string
-	MainBranch                   string
-	Message                      string
-	PreCommitMessage             string
-	CommitMessageBumpHc          string
-	CommitMessageOverrideService string
+	Org                      string
+	AuthorName               string
+	AuthorEmail              string
+	MainBranch               string
+	Message                  string
+	PreCommitMessage         string
+	CommitMessageBumpHc      string
+	CommitMessageBumpService string
 }
 
 type PlatformConfig struct {

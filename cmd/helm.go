@@ -6,14 +6,16 @@ import (
 	"github.com/adam-putland/divido-cli/internal/models"
 	"github.com/adam-putland/divido-cli/internal/service"
 	"github.com/adam-putland/divido-cli/internal/util"
+	"github.com/adam-putland/divido-cli/internal/util/github"
 	"github.com/manifoldco/promptui"
 	"github.com/sarulabs/di"
 	"os"
+	"strings"
 )
 
 var helmOptions = []string{
 	"Info",
-	"Bump Service(s) (In development)",
+	"Update Service(s) Versions",
 	"Compare Versions",
 	"Back",
 }
@@ -59,7 +61,11 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 		fmt.Println(plat)
 
 	case 1:
-		// TODO
+
+		err = BumpServicesUI(ctx, s, platConfig)
+		if err != nil {
+			return err
+		}
 
 	case 2:
 		releases, err := s.GetRepoReleases(ctx, platConfig.HelmChartRepo)
@@ -99,6 +105,140 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 	return HelmOptionsUI(ctx, s, platConfig)
 }
 
+func BumpServicesUI(ctx context.Context, s *service.Service, platConfig *models.PlatformConfig) error {
+
+	plat, err := s.GetPlat(ctx, platConfig.HelmChartRepo)
+	if err != nil {
+		return fmt.Errorf("getting services in hlm %w", err)
+	}
+
+	services := make([]*models.ServiceUpdated, 0, len(plat.Services))
+	for _, ser := range plat.Services {
+		services = append(services, &models.ServiceUpdated{Service: ser})
+	}
+
+	templates := &util.MultiSelectTemplates{
+		Label:      "{{ . }}",
+		Selected:   "\U00002388 {{ .Service.Name | cyan }}: {{ if .NewVersion }}{{ .Service.Version | red }} -> {{ .NewVersion | green }}{{ else }}{{ .Service.Version | cyan }}{{ end }}",
+		Unselected: "  {{ .Service.Name | cyan }}: {{ if .NewVersion }}{{ .Service.Version | red }} -> {{ .NewVersion | green }}{{ else }}{{ .Service.Version | cyan }}{{ end }}",
+		Help: fmt.Sprintf(`{{ "Use the arrow keys to navigate:" | faint }} {{ .NextKey | faint }} ` +
+			`{{ .PrevKey | faint }} {{ .PageDownKey | faint }} {{ .PageUpKey | faint }} ` +
+			`{{ if .Search }}{{ " (" | faint }}{{ .SearchKey | faint }} {{ "to search)" | faint }} {{ end }}` +
+			`{{ " (" | faint }}{{ .ToggleKey | faint }} {{ "to select)" | faint }}` +
+			`{{ " (Press enter to quit and save)" | faint }}`),
+	}
+
+	searcher := func(input string, index int) bool {
+		s := services[index]
+		name := strings.Replace(strings.ToLower(s.Service.Name), " ", "", -1)
+		input = strings.Replace(strings.ToLower(input), " ", "", -1)
+		return strings.Contains(name, input)
+	}
+
+	prompt := util.MultiSelect{
+		Label:     "Select Services to update",
+		Items:     services,
+		Templates: templates,
+		Size:      8,
+		Searcher:  searcher,
+		HideHelp:  false,
+	}
+
+	selected, err := prompt.Run()
+	if err != nil {
+		fmt.Printf("Prompt failed %v", err)
+		os.Exit(1)
+	}
+	for _, option := range selected {
+		services[option].NewVersion, err = util.PromptWithDefault(services[option].Service.Name, services[option].Service.Version)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+	}
+
+	config := s.GetConfig()
+	githubDetails := github.WithBumpServices(&config.Github)
+	return GithubUI(ctx, s, githubDetails, platConfig, services)
+
+}
+
+func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platConfig *models.PlatformConfig, services []*models.ServiceUpdated) error {
+	fmt.Printf("Github Details \n%s", gd)
+
+	options := []string{
+		"Change Author Name",
+		"Change Author Email",
+		"Change Commit Message",
+		"Change Branch",
+		"Continue",
+		"Back",
+	}
+
+	if !platConfig.DirectCommit {
+		fmt.Print(gd.PullRequestInfo())
+		options = append(options, []string{"Change pull request title", "Change pull request description"}...)
+	}
+
+	githubC, _, err := util.Select("Choose option", options)
+	if err != nil {
+		fmt.Printf("Prompt failed %v", err)
+		os.Exit(1)
+	}
+
+	switch githubC {
+	case 0:
+		gd.AuthorName, err = util.PromptWithDefault("Enter Author Name", gd.AuthorName)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+
+	case 1:
+		gd.AuthorName, err = util.PromptWithDefault("Enter Author Email", gd.AuthorEmail)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+	case 2:
+		gd.AuthorName, err = util.PromptWithDefault("Enter Commit Message", gd.Message)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+	case 3:
+		gd.AuthorName, err = util.PromptWithDefault("Enter Branch", gd.Branch)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+	case 4:
+
+		err = s.UpdateServicesVersions(ctx, platConfig, gd, services)
+		if err != nil {
+			return fmt.Errorf("error updating services %w", err)
+		}
+		return nil
+	case 5:
+		return nil
+	case 6:
+		gd.PullRequestTitle, err = util.PromptWithDefault("Enter Pull request title", gd.PullRequestTitle)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+
+	case 7:
+		gd.PullRequestDescription, err = util.PromptWithDefault("Enter Pull request description", gd.PullRequestDescription)
+		if err != nil {
+			fmt.Printf("Prompt failed %v", err)
+			os.Exit(1)
+		}
+
+	}
+	return GithubUI(ctx, s, gd, platConfig, services)
+}
+
 func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) error {
 
 	options := []string{
@@ -134,6 +274,7 @@ func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) 
 		fmt.Println(promptui.IconGood + " Release exported")
 
 	case 2:
+		//todo
 
 	case 3:
 		return nil

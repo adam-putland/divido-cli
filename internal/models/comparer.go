@@ -6,9 +6,9 @@ import (
 	"strings"
 )
 
-type Changed struct {
-	Service *Service
-	Version string
+type ServiceUpdated struct {
+	Service    *Service
+	NewVersion string
 }
 
 type Comparer struct {
@@ -16,13 +16,13 @@ type Comparer struct {
 	FinalVersion   string
 	Insert         Services
 	Deleted        Services
-	Changed        map[string]*Changed
+	Changed        map[string]*ServiceUpdated
 	DisableColor   bool
 }
 
 func Compare(plat1, plat2 *Platform) *Comparer {
 
-	changed := make(map[string]*Changed)
+	changed := make(map[string]*ServiceUpdated)
 
 	var comparer Comparer
 
@@ -56,9 +56,9 @@ func Compare(plat1, plat2 *Platform) *Comparer {
 	for s, service1 := range services1 {
 		if service2, ok := services2[s]; ok {
 			if service1.Version != service2.Version {
-				changed[service1.HLMName] = &Changed{
-					Service: service1,
-					Version: service2.Version,
+				changed[service1.HLMName] = &ServiceUpdated{
+					Service:    service1,
+					NewVersion: service2.Version,
 				}
 			}
 			delete(services1, s)
@@ -84,7 +84,7 @@ func (c *Comparer) String() string {
 	if len(c.Changed) > 0 {
 		builder.WriteString("Service Versions Changes:\n")
 		for k, ch := range c.Changed {
-			fmt.Fprintf(&builder, "- %s: %s -> %s\n", k, c.MakeDiffText(ch.Service.Version, "red"), c.MakeDiffText(ch.Version, "green"))
+			fmt.Fprintf(&builder, "- %s: %s -> %s\n", k, c.MakeDiffText(ch.Service.Version, "red"), c.MakeDiffText(ch.NewVersion, "green"))
 		}
 	}
 

@@ -35,9 +35,9 @@ func WithBumpHC(config *models.GithubConfig, version string) *Commit {
 	return commit
 }
 
-func WithOverrideServiceMessage(config *models.GithubConfig) *Commit {
+func WithBumpServices(config *models.GithubConfig) *Commit {
 	commit := NewGitHubCommit(config)
-	commit.Message = fmt.Sprintf("%s: %s", config.PreCommitMessage, config.CommitMessageOverrideService)
+	commit.Message = fmt.Sprintf("%s: %s", config.PreCommitMessage, config.CommitMessageBumpService)
 	return commit
 }
 

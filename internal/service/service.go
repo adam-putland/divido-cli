@@ -38,6 +38,10 @@ func New(
 	}
 }
 
+func (s Service) GetConfig() *models.Config {
+	return s.config
+}
+
 func (s *Service) GetChangelog(ctx context.Context, name string, version1 string, version2 string) (string, error) {
 	resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, name, version1, version2)
 	if err != nil {
@@ -150,12 +154,12 @@ func (s *Service) UpdateHelmVersion(ctx context.Context, env *models.Environment
 		if err != nil {
 			return err
 		}
-	}
-
-	err := s.gh.CreatePullRequest(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
-		s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
-	if err != nil {
-		return err
+	} else {
+		err := s.gh.CreatePullRequest(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
+			s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
+		if err != nil {
+			return err
+		}
 	}
 
 	env.HelmChartVersion = version
@@ -214,6 +218,63 @@ func (s *Service) GetPlat(ctx context.Context, platRepo string) (*models.Platfor
 	return &plat, nil
 }
 
+func (s *Service) UpdateServicesVersions(ctx context.Context, platConfig *models.PlatformConfig, githubDetails *github.Commit, servicesUpdated []*models.ServiceUpdated) error {
+
+	latest, err := s.GetLatest(ctx, platConfig.HelmChartRepo)
+	if err != nil {
+		return err
+	}
+
+	content, err := s.gh.GetContent(ctx, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, latest.Version)
+	if err != nil {
+		return err
+	}
+
+	parser := NewParser(content)
+
+	_, err = parser.Load()
+	if err != nil {
+		return err
+	}
+
+	// some validations could take place here from the parser.Load()
+
+	servicesToReplace := make(models.Services, len(servicesUpdated))
+	for _, updated := range servicesUpdated {
+		newService := *updated.Service
+		newService.Version = updated.NewVersion
+		servicesToReplace[updated.Service.Name] = &newService
+
+	}
+
+	err = parser.Replace(servicesToReplace)
+	if err != nil {
+		return err
+	}
+
+	content, err = parser.GetContent()
+	if err != nil {
+		return err
+	}
+
+	if platConfig.DirectCommit {
+		err := s.gh.Commit(ctx, content, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, githubDetails.Branch,
+			githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := s.gh.CreatePullRequest(ctx, content, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, githubDetails.Branch,
+			s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+
+}
+
 func (s *Service) ComparePlatReleasesByVersion(ctx context.Context, platConfig *models.PlatformConfig, releases models.Releases, version string, version2 string) (*models.Comparer, error) {
 	resultsChan := make(chan *models.Platform, 2)
 
@@ -267,7 +328,7 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 				repoName = repo
 			}
 		}
-		changelog, err := s.GetChangelog(ctx, repoName, changed.Service.Version, changed.Version)
+		changelog, err := s.GetChangelog(ctx, repoName, changed.Service.Version, changed.NewVersion)
 		if err != nil {
 			return nil, err
 		}
