@@ -347,12 +347,15 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 
 		repoName := s.ServiceNameToKebabCase(serviceName)
 
-		resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, repoName, changed.Service.Version, changed.NewVersion)
-		if err != nil {
-			return nil, err
+		if _, ok := changelogs[repoName]; !ok {
+			resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, repoName, changed.Service.Version, changed.NewVersion)
+			if err != nil {
+				return nil, err
+			}
+
+			changelogs[repoName] = resp.Body
 		}
 
-		changelogs[repoName] = resp.Body
 	}
 
 	for serviceName, service := range diff.Insert {

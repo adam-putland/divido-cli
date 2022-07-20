@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/go-github/v45/github"
 	"golang.org/x/oauth2"
+	"strings"
 	"time"
 )
 
@@ -94,6 +95,28 @@ func (c *GithubClient) GetChangelog(ctx context.Context, org string, repo string
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.HasPrefix(res.Body, "**Full Changelog**") {
+
+		resp, _, err := c.Client.Repositories.CompareCommits(ctx, org, repo, base, head, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		builder := strings.Builder{}
+		builder.Grow(len(resp.Commits))
+		for _, commit := range resp.Commits {
+			_, err := fmt.Fprintf(&builder, "%s\n", *commit.Commit.Message)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return &github.RepositoryReleaseNotes{
+			Name: repo,
+			Body: builder.String(),
+		}, nil
 	}
 
 	return res, nil
