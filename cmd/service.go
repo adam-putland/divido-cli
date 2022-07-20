@@ -20,7 +20,7 @@ func ServiceUI(ctx context.Context, app di.Container) error {
 	s := app.Get("service").(*service.Service)
 	serviceName, err := util.Prompt("Enter service")
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
@@ -34,7 +34,7 @@ func ServiceUI(ctx context.Context, app di.Container) error {
 }
 
 func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName string) error {
-	option, _, err := util.Select("Choose option", serviceOptions)
+	option, _, err := util.Select(SelectOptionMsg, serviceOptions)
 	if err != nil {
 		fmt.Printf("Prompt failed %v\n", err)
 		os.Exit(1)
@@ -67,7 +67,13 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 		}
 
 		versions := releases.Versions()
-		fi, fVersion, err := util.Select("Select first version", versions)
+
+		fi, fVersion, err := util.SelectWithSearch("Select first version", versions, func(input string, index int) bool {
+			s := versions[index]
+			name := strings.Replace(strings.ToLower(s), " ", "", -1)
+			input = strings.Replace(strings.ToLower(input), " ", "", -1)
+			return strings.Contains(name, input)
+		})
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
@@ -75,7 +81,12 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 
 		versions.Remove(fi)
 
-		_, sVersion, err := util.Select("Select last version", versions)
+		_, sVersion, err := util.SelectWithSearch("Select last version", versions, func(input string, index int) bool {
+			s := versions[index]
+			name := strings.Replace(strings.ToLower(s), " ", "", -1)
+			input = strings.Replace(strings.ToLower(input), " ", "", -1)
+			return strings.Contains(name, input)
+		})
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)

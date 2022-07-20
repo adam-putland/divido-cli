@@ -23,13 +23,13 @@ func EnvUI(ctx context.Context, app di.Container) error {
 	config := s.GetConfig()
 	platIndex, _, err := util.Select("Select platform", config.ListPlatform())
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
 	envI, _, err := util.Select("Select env", config.ListEnvironments(platIndex))
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
@@ -45,9 +45,9 @@ func EnvUI(ctx context.Context, app di.Container) error {
 
 func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environment, config *models.Config, platIndex int) error {
 
-	option, _, err := util.Select("Choose option", envOptions)
+	option, _, err := util.Select(SelectOptionMsg, envOptions)
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
@@ -91,7 +91,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 
 		_, err = prompt.Run()
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
@@ -140,9 +140,9 @@ func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment
 		options = append(options, []string{"Change pull request title", "Change pull request description"}...)
 	}
 
-	githubC, _, err := util.Select("Choose option", options)
+	githubC, _, err := util.Select(SelectOptionMsg, options)
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
@@ -150,26 +150,26 @@ func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment
 	case 0:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Author Name", gd.AuthorName)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
 	case 1:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Author Email", gd.AuthorEmail)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	case 2:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Commit Message", gd.Message)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	case 3:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Branch", gd.Branch)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	case 4:
@@ -185,14 +185,14 @@ func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment
 	case 6:
 		gd.PullRequestTitle, err = util.PromptWithDefault("Enter Pull request title", gd.PullRequestTitle)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
 	case 7:
 		gd.PullRequestDescription, err = util.PromptWithDefault("Enter Pull request description", gd.PullRequestDescription)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 

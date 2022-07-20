@@ -24,7 +24,7 @@ func CreateApp(ctx context.Context) *di.Container {
 			Name:  "config",
 			Scope: di.App,
 			Build: func(ctn di.Container) (interface{}, error) {
-				config := models.Config{}
+				var config models.Config
 				if err := viper.Unmarshal(&config); err != nil {
 					return nil, err
 				}

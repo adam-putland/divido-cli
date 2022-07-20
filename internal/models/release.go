@@ -45,8 +45,8 @@ func (release Release) String() string {
 	return fmt.Sprintf(" Name: %s\n latest version: %s\n URL: %s\n", release.Name, release.Version, release.URL)
 }
 
-func (versions *Versions) Remove(versionIndex int) {
-	copy((*versions)[versionIndex:], (*versions)[versionIndex+1:]) // shift valuesafter the indexwith a factor of 1
-	(*versions)[len(*versions)-1] = ""                             // remove element
+func (versions *Versions) Remove(index int) {
+	copy((*versions)[index:], (*versions)[index+1:]) // shift valuesafter the indexwith a factor of 1
+	(*versions)[len(*versions)-1] = ""               // remove element
 	*versions = (*versions)[:len(*versions)-1]
 }

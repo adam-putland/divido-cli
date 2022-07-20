@@ -2,4 +2,4 @@ package util
 
 import "github.com/pkg/errors"
 
-var PkgErr = errors.New("github")
+var ErrMissingPlat = errors.New("could not get platform")

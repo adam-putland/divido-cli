@@ -104,7 +104,7 @@ func (c *GithubClient) GetChangelog(ctx context.Context, org string, repo string
 			return nil, err
 		}
 
-		builder := strings.Builder{}
+		var builder strings.Builder
 		builder.Grow(len(resp.Commits))
 		for _, commit := range resp.Commits {
 			_, err := fmt.Fprintf(&builder, "%s\n", *commit.Commit.Message)

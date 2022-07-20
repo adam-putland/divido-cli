@@ -17,14 +17,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile string
+	options = []string{
+		"Services query",
+		"Helm query",
+		"Environments query",
+		"Exit",
+	}
+)
 
-var options = []string{
-	"Services query",
-	"Helm query",
-	"Environments query",
-	"Exit",
-}
+const SelectOptionMsg = "Select Option"
+const PromptFailedMsg = "Prompt failed %v"
 
 /// Service query -> prompts for input and shows the service, lists versions, click on version to get info, commit message, url to commit
 // Helm query -> prompt for platform (divido) ->
@@ -32,8 +36,6 @@ var options = []string{
 // Diff -> list of versions -> choose two and it generates diff + option to make changelogs (JIRA API)
 // Bump -> show current version and give option to bump a service (could type in service and it shows versions you can choose)
 // Environment query -> prompt for platform, env -> show hc, overrides, services
-// undo / redo
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "divido-cli",
@@ -51,9 +53,9 @@ var rootCmd = &cobra.Command{
 }
 
 func Run(ctx context.Context, app di.Container) error {
-	index, _, err := util.Select("Select Option", options)
+	index, _, err := util.Select(SelectOptionMsg, options)
 	if err != nil {
-		return fmt.Errorf("select failed %v", err)
+		return fmt.Errorf("select failed %w", err)
 	}
 
 	var errUI error

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/adam-putland/divido-cli/internal/models"
+	"github.com/adam-putland/divido-cli/internal/util"
 	"github.com/adam-putland/divido-cli/internal/util/github"
 	"github.com/gobeam/stringy"
 	"log"
@@ -98,7 +99,7 @@ func (s Service) GetEnv(ctx context.Context, platIndex, envIndex int) (*models.E
 
 	plat := s.config.GetPlatform(platIndex)
 	if plat == nil {
-		return nil, errors.New("could not get platform")
+		return nil, util.ErrMissingPlat
 	}
 
 	env := plat.GetEnvironment(envIndex)
@@ -149,7 +150,7 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 
 	plat := s.config.GetPlatform(platIndex)
 	if plat == nil {
-		return errors.New("could not get platform")
+		return util.ErrMissingPlat
 	}
 
 	content, err := s.gh.GetContent(ctx, s.config.Github.Org,
@@ -170,14 +171,15 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 func (s *Service) UpdateHelmVersion(ctx context.Context, env *models.Environment, githubDetails *github.Commit, version string) error {
 
 	version = strings.Trim(version, "v")
+	data := []byte(version)
 	if env.DirectCommit {
-		err := s.gh.Commit(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
+		err := s.gh.Commit(ctx, data, s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
 			githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message)
 		if err != nil {
 			return err
 		}
 	} else {
-		err := s.gh.CreatePullRequest(ctx, []byte(version), s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
+		err := s.gh.CreatePullRequest(ctx, data, s.config.Github.Org, env.Repo, _defaultChartVersionFilePath, githubDetails.Branch,
 			s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
 		if err != nil {
 			return err
@@ -191,7 +193,7 @@ func (s *Service) UpdateHelmVersion(ctx context.Context, env *models.Environment
 func (s *Service) GetHelmVersions(ctx context.Context, env *models.Environment, platIndex int) (models.Releases, error) {
 	plat := s.config.GetPlatform(platIndex)
 	if plat == nil {
-		return nil, errors.New("could not get platform")
+		return nil, util.ErrMissingPlat
 	}
 
 	repository, err := s.gh.GetReleases(ctx, s.config.Github.Org, plat.HelmChartRepo)
@@ -239,14 +241,14 @@ func (s *Service) GetPlat(ctx context.Context, platRepo string) (*models.Platfor
 	return &plat, nil
 }
 
-func (s *Service) UpdateServicesVersions(ctx context.Context, platConfig *models.PlatformConfig, githubDetails *github.Commit, servicesUpdated []*models.ServiceUpdated) error {
+func (s *Service) UpdateServicesVersions(ctx context.Context, platCfg *models.PlatformConfig, githubDetails *github.Commit, servicesUpdated []*models.ServiceUpdated) error {
 
-	latest, err := s.GetLatest(ctx, platConfig.HelmChartRepo)
+	latest, err := s.GetLatest(ctx, platCfg.HelmChartRepo)
 	if err != nil {
 		return err
 	}
 
-	content, err := s.gh.GetContent(ctx, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, latest.Version)
+	content, err := s.gh.GetContent(ctx, s.config.Github.Org, platCfg.HelmChartRepo, _defaultChatServicesFilePath, latest.Version)
 	if err != nil {
 		return err
 	}
@@ -278,30 +280,21 @@ func (s *Service) UpdateServicesVersions(ctx context.Context, platConfig *models
 		return err
 	}
 
-	if platConfig.DirectCommit {
-		err := s.gh.Commit(ctx, content, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, githubDetails.Branch,
+	if platCfg.DirectCommit {
+		return s.gh.Commit(ctx, content, s.config.Github.Org, platCfg.HelmChartRepo, _defaultChatServicesFilePath, githubDetails.Branch,
 			githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message)
-		if err != nil {
-			return err
-		}
-	} else {
-		err := s.gh.CreatePullRequest(ctx, content, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, githubDetails.Branch,
-			s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
-		if err != nil {
-			return err
-		}
 	}
 
-	return nil
-
+	return s.gh.CreatePullRequest(ctx, content, s.config.Github.Org, platCfg.HelmChartRepo, _defaultChatServicesFilePath, githubDetails.Branch,
+		s.config.Github.MainBranch, githubDetails.AuthorName, githubDetails.AuthorEmail, githubDetails.Message, githubDetails.PullRequestTitle, githubDetails.PullRequestDescription)
 }
 
-func (s *Service) ComparePlatReleasesByVersion(ctx context.Context, platConfig *models.PlatformConfig, releases models.Releases, version string, version2 string) (*models.Comparer, error) {
-	resultsChan := make(chan *models.Platform, 2)
+func (s *Service) ComparePlatReleasesByVersion(ctx context.Context, platCfg *models.PlatformConfig, releases models.Releases, version string, version2 string) (*models.Comparer, error) {
+	resultsChan := make(chan *models.Platform)
 
 	for _, v := range []string{version, version2} {
 		go func(version string) {
-			content, err := s.gh.GetContent(ctx, s.config.Github.Org, platConfig.HelmChartRepo, _defaultChatServicesFilePath, version)
+			content, err := s.gh.GetContent(ctx, s.config.Github.Org, platCfg.HelmChartRepo, _defaultChatServicesFilePath, version)
 			if err != nil {
 				fmt.Println(err)
 				resultsChan <- nil

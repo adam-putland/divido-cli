@@ -24,47 +24,44 @@ var helmOptions = []string{
 func HelmUI(ctx context.Context, app di.Container) error {
 
 	s := app.Get("service").(*service.Service)
-	config := s.GetConfig()
-	platIndex, _, err := util.Select("Select platform", config.ListPlatform())
+	cfg := s.GetConfig()
+	platIndex, _, err := util.Select("Select platform", cfg.ListPlatform())
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
-	platConfig := config.GetPlatform(platIndex)
+	platConfig := cfg.GetPlatform(platIndex)
 
 	return HelmOptionsUI(ctx, s, platConfig)
 
 }
 
-func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.PlatformConfig) error {
+func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.PlatformConfig) error {
 
-	latest, err := s.GetLatest(ctx, platConfig.HelmChartRepo)
+	latest, err := s.GetLatest(ctx, platCfg.HelmChartRepo)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	fmt.Printf("Latest Release: \n%s", latest)
 
-	option, _, err := util.Select("Choose option", helmOptions)
+	option, _, err := util.Select(SelectOptionMsg, helmOptions)
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
 	switch option {
 	case 0:
 
-		plat, err := s.GetPlat(ctx, platConfig.HelmChartRepo)
+		plat, err := s.GetPlat(ctx, platCfg.HelmChartRepo)
 		if err != nil {
 			return fmt.Errorf("getting services in hlm %w", err)
 		}
 		fmt.Println(plat)
 
-		services := make([]*models.Service, 0, len(plat.Services))
-		for _, ser := range plat.Services {
-			services = append(services, ser)
-		}
+		services := plat.Services.ToArray()
 
 		templates := &util.MultiSelectTemplates{
 			Label:      "{{ . }}",
@@ -94,38 +91,48 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 
 		_, err = prompt.Run()
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
 	case 1:
 
-		err = BumpServicesUI(ctx, s, platConfig)
+		err = BumpServicesUI(ctx, s, platCfg)
 		if err != nil {
 			return err
 		}
 
 	case 2:
-		releases, err := s.GetRepoReleases(ctx, platConfig.HelmChartRepo)
+		releases, err := s.GetRepoReleases(ctx, platCfg.HelmChartRepo)
 		if err != nil {
 			return fmt.Errorf("getting platform versions %w", err)
 		}
 
 		versions := releases.Versions()
-		fi, fVersion, err := util.Select("Select first version", versions)
+		fi, fVersion, err := util.SelectWithSearch("Select first version", versions, func(input string, index int) bool {
+			s := versions[index]
+			name := strings.Replace(strings.ToLower(s), " ", "", -1)
+			input = strings.Replace(strings.ToLower(input), " ", "", -1)
+			return strings.Contains(name, input)
+		})
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
 		}
 
 		versions.Remove(fi)
-		_, lVersion, err := util.Select("Select last version", versions)
+		_, lVersion, err := util.SelectWithSearch("Select last version", versions, func(input string, index int) bool {
+			s := versions[index]
+			name := strings.Replace(strings.ToLower(s), " ", "", -1)
+			input = strings.Replace(strings.ToLower(input), " ", "", -1)
+			return strings.Contains(name, input)
+		})
 		if err != nil {
 			fmt.Printf("Prompt failed %v\n", err)
 			os.Exit(1)
 		}
 
-		diff, err := s.ComparePlatReleasesByVersion(ctx, platConfig, releases, fVersion, lVersion)
+		diff, err := s.ComparePlatReleasesByVersion(ctx, platCfg, releases, fVersion, lVersion)
 		if err != nil {
 			return fmt.Errorf("comparing versions %w", err)
 		}
@@ -140,12 +147,12 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platConfig *models.P
 		return nil
 	}
 
-	return HelmOptionsUI(ctx, s, platConfig)
+	return HelmOptionsUI(ctx, s, platCfg)
 }
 
-func BumpServicesUI(ctx context.Context, s *service.Service, platConfig *models.PlatformConfig) error {
+func BumpServicesUI(ctx context.Context, s *service.Service, platCfg *models.PlatformConfig) error {
 
-	plat, err := s.GetPlat(ctx, platConfig.HelmChartRepo)
+	plat, err := s.GetPlat(ctx, platCfg.HelmChartRepo)
 	if err != nil {
 		return fmt.Errorf("getting services in hlm %w", err)
 	}
@@ -184,13 +191,13 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platConfig *models.
 
 	selected, err := prompt.Run()
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
 	selectedServices := make([]*models.ServiceUpdated, 0, len(selected))
 
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 
 	rowRes := make(map[int][]string, len(selected))
 
@@ -214,18 +221,18 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platConfig *models.
 			selectedServices[index].NewVersion, err = util.PromptWithDefault(selectedServices[index].Service.Name, selectedServices[index].Service.Version)
 		}
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	}
 
-	config := s.GetConfig()
-	githubDetails := github.WithBumpServices(&config.Github)
-	return GithubUI(ctx, s, githubDetails, platConfig, selectedServices)
+	cfg := s.GetConfig()
+	githubDetails := github.WithBumpServices(&cfg.Github)
+	return GithubUI(ctx, s, githubDetails, platCfg, selectedServices)
 
 }
 
-func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platConfig *models.PlatformConfig, services []*models.ServiceUpdated) error {
+func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCfg *models.PlatformConfig, services []*models.ServiceUpdated) error {
 	fmt.Printf("Github Details \n%s", gd)
 
 	options := []string{
@@ -237,14 +244,14 @@ func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCo
 		"Back",
 	}
 
-	if !platConfig.DirectCommit {
+	if !platCfg.DirectCommit {
 		fmt.Print(gd.PullRequestInfo())
 		options = append(options, []string{"Change pull request title", "Change pull request description"}...)
 	}
 
-	githubC, _, err := util.Select("Choose option", options)
+	githubC, _, err := util.Select(SelectOptionMsg, options)
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
@@ -252,31 +259,31 @@ func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCo
 	case 0:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Author Name", gd.AuthorName)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
 	case 1:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Author Email", gd.AuthorEmail)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	case 2:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Commit Message", gd.Message)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	case 3:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Branch", gd.Branch)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 	case 4:
 
-		err = s.UpdateServicesVersions(ctx, platConfig, gd, services)
+		err = s.UpdateServicesVersions(ctx, platCfg, gd, services)
 		if err != nil {
 			return fmt.Errorf("error updating services %w", err)
 		}
@@ -286,19 +293,19 @@ func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCo
 	case 6:
 		gd.PullRequestTitle, err = util.PromptWithDefault("Enter Pull request title", gd.PullRequestTitle)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
 	case 7:
 		gd.PullRequestDescription, err = util.PromptWithDefault("Enter Pull request description", gd.PullRequestDescription)
 		if err != nil {
-			fmt.Printf("Prompt failed %v", err)
+			fmt.Printf(PromptFailedMsg, err)
 			os.Exit(1)
 		}
 
 	}
-	return GithubUI(ctx, s, gd, platConfig, services)
+	return GithubUI(ctx, s, gd, platCfg, services)
 }
 
 func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) error {
@@ -310,9 +317,9 @@ func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) 
 		"Back",
 	}
 
-	option, _, err := util.Select("Choose option", options)
+	option, _, err := util.Select(SelectOptionMsg, options)
 	if err != nil {
-		fmt.Printf("Prompt failed %v", err)
+		fmt.Printf(PromptFailedMsg, err)
 		os.Exit(1)
 	}
 
