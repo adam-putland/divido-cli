@@ -6,7 +6,6 @@ import (
 	"github.com/adam-putland/divido-cli/internal/service"
 	"github.com/adam-putland/divido-cli/internal/util"
 	"github.com/sarulabs/di"
-	"os"
 	"strings"
 )
 
@@ -20,8 +19,7 @@ func ServiceUI(ctx context.Context, app di.Container) error {
 	s := app.Get("service").(*service.Service)
 	serviceName, err := util.Prompt("Enter service")
 	if err != nil {
-		fmt.Printf(PromptFailedMsg, err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	serv, err := s.GetLatest(ctx, serviceName)
@@ -36,8 +34,7 @@ func ServiceUI(ctx context.Context, app di.Container) error {
 func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName string) error {
 	option, _, err := util.Select(SelectOptionMsg, serviceOptions)
 	if err != nil {
-		fmt.Printf("Prompt failed %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	switch option {
@@ -55,8 +52,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 			return strings.Contains(name, input)
 		})
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 	case 1:
@@ -75,8 +71,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 			return strings.Contains(name, input)
 		})
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 		versions.Remove(fi)
@@ -88,8 +83,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 			return strings.Contains(name, input)
 		})
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 		changelog, err := s.GetChangelog(ctx, serviceName, releases.GetReleaseByVersion(fVersion), releases.GetReleaseByVersion(sVersion))

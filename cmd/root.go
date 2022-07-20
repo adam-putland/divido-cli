@@ -28,7 +28,7 @@ var (
 )
 
 const SelectOptionMsg = "Select Option"
-const PromptFailedMsg = "Prompt failed %v"
+const PromptFailedMsg = "prompt failed: %w"
 
 /// Service query -> prompts for input and shows the service, lists versions, click on version to get info, commit message, url to commit
 // Helm query -> prompt for platform (divido) ->

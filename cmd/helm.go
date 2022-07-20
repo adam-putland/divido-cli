@@ -9,7 +9,6 @@ import (
 	"github.com/adam-putland/divido-cli/internal/util/github"
 	"github.com/manifoldco/promptui"
 	"github.com/sarulabs/di"
-	"os"
 	"strings"
 	"sync"
 )
@@ -27,8 +26,7 @@ func HelmUI(ctx context.Context, app di.Container) error {
 	cfg := s.GetConfig()
 	platIndex, _, err := util.Select("Select platform", cfg.ListPlatform())
 	if err != nil {
-		fmt.Printf(PromptFailedMsg, err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	platConfig := cfg.GetPlatform(platIndex)
@@ -48,8 +46,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 
 	option, _, err := util.Select(SelectOptionMsg, helmOptions)
 	if err != nil {
-		fmt.Printf(PromptFailedMsg, err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	switch option {
@@ -91,8 +88,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 
 		_, err = prompt.Run()
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 	case 1:
@@ -116,8 +112,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 			return strings.Contains(name, input)
 		})
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 		versions.Remove(fi)
@@ -128,8 +123,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 			return strings.Contains(name, input)
 		})
 		if err != nil {
-			fmt.Printf("Prompt failed %v\n", err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 		diff, err := s.ComparePlatReleasesByVersion(ctx, platCfg, releases, fVersion, lVersion)
@@ -191,8 +185,7 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platCfg *models.Pla
 
 	selected, err := prompt.Run()
 	if err != nil {
-		fmt.Printf(PromptFailedMsg, err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	selectedServices := make([]*models.ServiceUpdated, 0, len(selected))
@@ -221,8 +214,7 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platCfg *models.Pla
 			selectedServices[index].NewVersion, err = util.PromptWithDefault(selectedServices[index].Service.Name, selectedServices[index].Service.Version)
 		}
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 	}
 
@@ -251,35 +243,30 @@ func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCf
 
 	githubC, _, err := util.Select(SelectOptionMsg, options)
 	if err != nil {
-		fmt.Printf(PromptFailedMsg, err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	switch githubC {
 	case 0:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Author Name", gd.AuthorName)
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 	case 1:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Author Email", gd.AuthorEmail)
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 	case 2:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Commit Message", gd.Message)
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 	case 3:
 		gd.AuthorName, err = util.PromptWithDefault("Enter Branch", gd.Branch)
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 	case 4:
 
@@ -293,15 +280,13 @@ func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCf
 	case 6:
 		gd.PullRequestTitle, err = util.PromptWithDefault("Enter Pull request title", gd.PullRequestTitle)
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 	case 7:
 		gd.PullRequestDescription, err = util.PromptWithDefault("Enter Pull request description", gd.PullRequestDescription)
 		if err != nil {
-			fmt.Printf(PromptFailedMsg, err)
-			os.Exit(1)
+			return fmt.Errorf(PromptFailedMsg, err)
 		}
 
 	}
@@ -319,8 +304,7 @@ func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) 
 
 	option, _, err := util.Select(SelectOptionMsg, options)
 	if err != nil {
-		fmt.Printf(PromptFailedMsg, err)
-		os.Exit(1)
+		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
 	switch option {
