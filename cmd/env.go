@@ -11,10 +11,9 @@ import (
 	"strings"
 )
 
-var envOptions = []string{
+var envOptions = util.Options{
 	"Show Services",
 	"Update Helm version",
-	"Back",
 }
 
 func EnvUI(ctx context.Context, app di.Container) error {
@@ -42,7 +41,7 @@ func EnvUI(ctx context.Context, app di.Container) error {
 
 func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environment, config *models.Config, platIndex int) error {
 
-	option, _, err := util.Select(SelectOptionMsg, envOptions)
+	option, _, err := util.Select(SelectOptionMsg, envOptions.WithBackOption())
 	if err != nil {
 		return fmt.Errorf(PromptFailedMsg, err)
 	}
@@ -99,7 +98,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 		}
 
 		versions := releases.Versions()
-		_, fVersion, err := util.Select("Select version", versions)
+		_, fVersion, err := util.Select("Select version", util.Options(versions))
 		if err != nil {
 			return fmt.Errorf("Prompt failed %v\n", err)
 		}
@@ -120,14 +119,13 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment, gd *github.Commit, version string) error {
 	fmt.Printf("Github Details \n%s", gd)
 
-	options := []string{
+	options := util.Options{
 		"Change Author Name",
 		"Change Author Email",
 		"Change Commit Message",
 		"Change Branch",
 		"Continue",
-		"Back",
-	}
+	}.WithBackOption()
 
 	if !env.DirectCommit {
 		fmt.Print(gd.PullRequestInfo())

@@ -5,7 +5,13 @@ import (
 	"github.com/manifoldco/promptui"
 )
 
-func Select(msg string, elems []string) (int, string, error) {
+type Options []string
+
+func (options Options) WithBackOption() Options {
+	return append(options, "Back")
+}
+
+func Select(msg string, elems Options) (int, string, error) {
 	fmt.Println()
 	prompt2 := promptui.Select{
 		Label: msg,
@@ -14,7 +20,7 @@ func Select(msg string, elems []string) (int, string, error) {
 	return prompt2.Run()
 }
 
-func SelectWithSearch(msg string, elems []string, searcher func(input string, index int) bool) (int, string, error) {
+func SelectWithSearch(msg string, elems Options, searcher func(input string, index int) bool) (int, string, error) {
 	fmt.Println()
 	prompt2 := promptui.Select{
 		Label:    msg,
@@ -24,7 +30,7 @@ func SelectWithSearch(msg string, elems []string, searcher func(input string, in
 	return prompt2.Run()
 }
 
-func SelectWithAdd(msg string, elems []string) (int, string, error) {
+func SelectWithAdd(msg string, elems Options) (int, string, error) {
 	fmt.Println()
 	fmt.Println()
 	prompt2 := promptui.SelectWithAdd{

@@ -9,10 +9,9 @@ import (
 	"strings"
 )
 
-var serviceOptions = []string{
+var serviceOptions = util.Options{
 	"Versions",
 	"Generate Changelog",
-	"Back",
 }
 
 func ServiceUI(ctx context.Context, app di.Container) error {
@@ -32,7 +31,7 @@ func ServiceUI(ctx context.Context, app di.Container) error {
 }
 
 func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName string) error {
-	option, _, err := util.Select(SelectOptionMsg, serviceOptions)
+	option, _, err := util.Select(SelectOptionMsg, serviceOptions.WithBackOption())
 	if err != nil {
 		return fmt.Errorf(PromptFailedMsg, err)
 	}
@@ -45,7 +44,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 		}
 
 		versions := releases.Versions()
-		_, _, err = util.SelectWithSearch("Versions", releases.Versions(), func(input string, index int) bool {
+		_, _, err = util.SelectWithSearch("Versions", util.Options(releases.Versions()), func(input string, index int) bool {
 			s := versions[index]
 			name := strings.Replace(strings.ToLower(s), " ", "", -1)
 			input = strings.Replace(strings.ToLower(input), " ", "", -1)
@@ -64,7 +63,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 
 		versions := releases.Versions()
 
-		fi, fVersion, err := util.SelectWithSearch("Select first version", versions, func(input string, index int) bool {
+		fi, fVersion, err := util.SelectWithSearch("Select first version", util.Options(versions), func(input string, index int) bool {
 			s := versions[index]
 			name := strings.Replace(strings.ToLower(s), " ", "", -1)
 			input = strings.Replace(strings.ToLower(input), " ", "", -1)
@@ -76,7 +75,7 @@ func ServiceOptionsUI(ctx context.Context, s *service.Service, serviceName strin
 
 		versions.Remove(fi)
 
-		_, sVersion, err := util.SelectWithSearch("Select last version", versions, func(input string, index int) bool {
+		_, sVersion, err := util.SelectWithSearch("Select last version", util.Options(versions), func(input string, index int) bool {
 			s := versions[index]
 			name := strings.Replace(strings.ToLower(s), " ", "", -1)
 			input = strings.Replace(strings.ToLower(input), " ", "", -1)

@@ -13,11 +13,10 @@ import (
 	"sync"
 )
 
-var helmOptions = []string{
+var helmOptions = util.Options{
 	"Info",
 	"Update Service(s) Versions",
 	"Compare Versions",
-	"Back",
 }
 
 func HelmUI(ctx context.Context, app di.Container) error {
@@ -44,7 +43,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 
 	fmt.Printf("Latest Release: \n%s", latest)
 
-	option, _, err := util.Select(SelectOptionMsg, helmOptions)
+	option, _, err := util.Select(SelectOptionMsg, helmOptions.WithBackOption())
 	if err != nil {
 		return fmt.Errorf(PromptFailedMsg, err)
 	}
@@ -105,7 +104,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 		}
 
 		versions := releases.Versions()
-		fi, fVersion, err := util.SelectWithSearch("Select first version", versions, func(input string, index int) bool {
+		fi, fVersion, err := util.SelectWithSearch("Select first version", util.Options(versions), func(input string, index int) bool {
 			s := versions[index]
 			name := strings.Replace(strings.ToLower(s), " ", "", -1)
 			input = strings.Replace(strings.ToLower(input), " ", "", -1)
@@ -116,7 +115,7 @@ func HelmOptionsUI(ctx context.Context, s *service.Service, platCfg *models.Plat
 		}
 
 		versions.Remove(fi)
-		_, lVersion, err := util.SelectWithSearch("Select last version", versions, func(input string, index int) bool {
+		_, lVersion, err := util.SelectWithSearch("Select last version", util.Options(versions), func(input string, index int) bool {
 			s := versions[index]
 			name := strings.Replace(strings.ToLower(s), " ", "", -1)
 			input = strings.Replace(strings.ToLower(input), " ", "", -1)
@@ -227,14 +226,13 @@ func BumpServicesUI(ctx context.Context, s *service.Service, platCfg *models.Pla
 func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCfg *models.PlatformConfig, services []*models.ServiceUpdated) error {
 	fmt.Printf("Github Details \n%s", gd)
 
-	options := []string{
+	options := util.Options{
 		"Change Author Name",
 		"Change Author Email",
 		"Change Commit Message",
 		"Change Branch",
 		"Continue",
-		"Back",
-	}
+	}.WithBackOption()
 
 	if !platCfg.DirectCommit {
 		fmt.Print(gd.PullRequestInfo())
@@ -295,14 +293,13 @@ func GithubUI(ctx context.Context, s *service.Service, gd *github.Commit, platCf
 
 func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) error {
 
-	options := []string{
+	options := util.Options{
 		"Show Changelogs",
 		"Export Release",
 		"Create Release Ticket (In development)",
-		"Back",
 	}
 
-	option, _, err := util.Select(SelectOptionMsg, options)
+	option, _, err := util.Select(SelectOptionMsg, options.WithBackOption())
 	if err != nil {
 		return fmt.Errorf(PromptFailedMsg, err)
 	}
