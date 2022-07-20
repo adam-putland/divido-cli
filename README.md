@@ -1,22 +1,33 @@
+
 # divido-cli
-A CLI to help divido devs
 
-# Definitions
+An interactive prompt cli to help Divido devs manage services and GitHub Helm updates
 
-- Envrionment is like ing-test, it has a helm chart and overrides
-- Charts is a helm chart, it has a list of services
-- Service like portals-web-pub have a version
+All via GITHUB API, grabbed GITHUB_TOKEN from env variable if possible.
 
-# List of things you can do 
+## Usage
+In order to utilize this you're going to need:
+- A GitHub Personal Access token setup and configured on your GitHub profile and local machine
 
-- show services deployed in an environment
-- show services in a helm chart
-- diff between helm charts
+    - You can setup a token by logged into GitHub, [visit your account tokens page](https://github.com/settings/tokens) visit your account tokens page —> create a new token
+    - The only permissions required is `repo`
+    - Open a new terminal and run `export GITHUB_TOKEN="[TOKEN HERE]"` (no square brackets or quotes)
+    - run `echo $GITHUB_TOKEN` —> verify you see your token
+  
+## Features
+
+- show services deployed in an environment  (e.g see all services deployed in ING testing)
+- show services in a helm chart  (e.g see all services in a specific (v1.31.65) ING Helm chart)
+- diff between helm charts 
 - generate changelog between two given helm charts (v1.2.3 -> v1.2.4)
 - bump a service in a helm chart
-- bump a helm chart in an environment 
-- override/remove override a service in an environment
-- undo / redo last commands
-- set GITHUB_TOKEN
+- bump a helm chart in an environment
 
-All via GITHUB API, grabbed GITHUB_TOKEN from env variable if possible. Maybe also an option to set it 
+### Features
+
+
+
+
+
+
+
