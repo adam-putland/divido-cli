@@ -14,6 +14,7 @@ import (
 var envOptions = util.Options{
 	"Show Services and/or overrides",
 	"Update Helm version",
+	"Update Services via overrides (In development)",
 }
 
 func EnvUI(ctx context.Context, app di.Container) error {
@@ -114,7 +115,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 	case 1:
 
 		if env.OnlyOverrides {
-			fmt.Printf("%s only updated via overrides", env.Name)
+			fmt.Printf("%s only updated via overrides (select show services)", env.Name)
 			break
 		}
 
@@ -138,6 +139,10 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 		}
 
 	case 2:
+
+		//
+		fmt.Println("In development")
+	case 3:
 		return nil
 	}
 

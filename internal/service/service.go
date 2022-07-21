@@ -130,18 +130,20 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 		return util.ErrMissingPlat
 	}
 
-	content, err := s.gh.GetContent(ctx, s.config.Github.Org,
-		plat.HelmChartRepo, _defaultChatServicesFilePath, env.GetHCVersion())
-	if err != nil {
-		return err
-	}
+	if !env.OnlyOverrides {
+		content, err := s.gh.GetContent(ctx, s.config.Github.Org,
+			plat.HelmChartRepo, _defaultChatServicesFilePath, env.GetHCVersion())
+		if err != nil {
+			return err
+		}
 
-	services, err := NewParser(content).Load()
-	if err != nil {
-		return err
-	}
+		services, err := NewParser(content).Load()
+		if err != nil {
+			return err
+		}
 
-	env.Services = services
+		env.Services = services
+	}
 
 	// if no ChartPath will load services directly from the env repo
 	if env.ChartPath != "" {

@@ -14,6 +14,7 @@ func (options Options) WithBackOption() Options {
 func Select(msg string, elems Options) (int, string, error) {
 	fmt.Println()
 	prompt2 := promptui.Select{
+
 		Label: msg,
 		Items: elems,
 	}

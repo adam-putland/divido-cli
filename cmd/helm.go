@@ -325,7 +325,7 @@ func VersionsUI(ctx context.Context, s *service.Service, diff *models.Comparer) 
 
 	case 2:
 		//todo
-
+		fmt.Println("In development")
 	case 3:
 		return nil
 	}
