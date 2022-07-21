@@ -338,10 +338,17 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 	changelogs := make(map[string]string, len(diff.Changed)+len(diff.Insert))
 	for serviceName, changed := range diff.Changed {
 
-		repoName := s.ServiceNameToKebabCase(serviceName)
+		repoName, multi := s.ServiceNameToKebabCase(serviceName)
 
 		if _, ok := changelogs[repoName]; !ok {
-			resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, repoName, changed.Service.Version, changed.NewVersion)
+
+			version1 := changed.Service.Version
+			version2 := changed.NewVersion
+			if multi {
+				version1 = fmt.Sprintf("%s-%s", stringy.New(serviceName).KebabCase().ToLower(), version1)
+				version2 = fmt.Sprintf("%s-%s", stringy.New(serviceName).KebabCase().ToLower(), version2)
+			}
+			resp, err := s.gh.GetChangelog(ctx, s.config.Github.Org, repoName, version1, version2)
 			if err != nil {
 				return nil, err
 			}
@@ -353,7 +360,7 @@ func (s Service) GetChangelogsFromDiff(ctx context.Context, diff *models.Compare
 
 	for serviceName, service := range diff.Insert {
 
-		repoName := s.ServiceNameToKebabCase(serviceName)
+		repoName, _ := s.ServiceNameToKebabCase(serviceName)
 		releases, err := s.GetRepoReleases(ctx, repoName)
 		if err != nil {
 			return nil, err
@@ -430,9 +437,14 @@ func (s Service) ExportRelease(ctx context.Context, diff *models.Comparer) error
 
 func (s Service) GetAvailableServiceReleases(ctx context.Context, service *models.Service) (models.Releases, error) {
 
-	repoName := s.ServiceNameToKebabCase(service.Name)
+	repoName, multi := s.ServiceNameToKebabCase(service.Name)
 
-	release, err := s.gh.GetRelease(ctx, s.config.Github.Org, repoName, service.Version)
+	version := service.Version
+	if multi {
+		version = fmt.Sprintf("%s-%s", stringy.New(service.Name).KebabCase().Get(), version)
+	}
+
+	release, err := s.gh.GetRelease(ctx, s.config.Github.Org, repoName, version)
 	if err != nil {
 		return nil, err
 	}
@@ -460,12 +472,14 @@ func (s Service) GetAvailableServiceReleases(ctx context.Context, service *model
 	return releases, err
 }
 
-func (s Service) ServiceNameToKebabCase(serviceName string) string {
+func (s Service) ServiceNameToKebabCase(serviceName string) (string, bool) {
 	repoName := stringy.New(serviceName).KebabCase().Get()
-	for regex, repo := range s.config.Services {
+	multiTag := false
+	for regex, mapping := range s.config.ServicesMapping {
 		if matched, _ := regexp.MatchString(regex, serviceName); matched {
-			repoName = repo
+			repoName = mapping.Repo
+			multiTag = mapping.MultiTag
 		}
 	}
-	return strings.ToLower(repoName)
+	return strings.ToLower(repoName), multiTag
 }

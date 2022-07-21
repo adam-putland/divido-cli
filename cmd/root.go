@@ -30,12 +30,6 @@ var (
 const SelectOptionMsg = "Select Option"
 const PromptFailedMsg = "prompt failed: %w"
 
-/// Service query -> prompts for input and shows the service, lists versions, click on version to get info, commit message, url to commit
-// Helm query -> prompt for platform (divido) ->
-// View -> list of versions -> select one version to see info (services, overrides, etc)
-// Diff -> list of versions -> choose two and it generates diff + option to make changelogs (JIRA API)
-// Bump -> show current version and give option to bump a service (could type in service and it shows versions you can choose)
-// Environment query -> prompt for platform, env -> show hc, overrides, services
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "divido-cli",

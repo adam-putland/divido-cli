@@ -1,9 +1,14 @@
 package models
 
 type Config struct {
-	Platforms []PlatformConfig
-	Github    GithubConfig
-	Services  map[string]string
+	Platforms       []PlatformConfig
+	Github          GithubConfig
+	ServicesMapping map[string]ServiceMapping `mapstructure:"services"`
+}
+
+type ServiceMapping struct {
+	Repo     string
+	MultiTag bool `mapstructure:"multi-tag"`
 }
 
 type GithubConfig struct {
