@@ -13,6 +13,62 @@ In order to utilize this you're going to need:
     - The only permissions required is `repo`
     - Open a new terminal and run `export GITHUB_TOKEN="[TOKEN HERE]"` (no square brackets or quotes)
     - run `echo $GITHUB_TOKEN` —> verify you see your token
+- A config file to load the configuration of all platforms, environments and services.
+    - By default, it will load a config.json file from the executable directory
+    - If you have a different file, you can use:
+  
+  ```shell
+    $ ./divido-cli --config=FILE_PATH 
+    ```
+
+## Config File
+An example input configuration file is shown below:
+
+```json
+{
+  "github" : {
+    "org": "dividohq",
+    "preCommitMessage": "chore(autocommit)",
+    "commitMessageBumpHc": "Automatic bump hc",
+    "commitMessageBumpService": "Automatic bump service(s)",
+    "authorName": "dividotech",
+    "authorEmail": "tech@divido.com",
+    "mainBranch": "master"
+  },
+  "platforms": [
+  {
+    "name": "divido",
+    "hlm": "divido-platform-hlm",
+    "directCommit": true,
+    "envs": [
+      {
+        "name": "test",
+        "repo": "test-k8s-services-inf",
+        "chartPath": "configs/versions.yaml",
+        "directCommit": true
+      }
+     ]
+  }
+  ],
+  "services": [
+    {
+      ".*Portal.*WebPub$": {
+        "repo": "portals-web-pub"
+      },
+      ".*GraphqlApi.*": {"repo": "graphql-apis", "multi-tag":  true}
+    }
+  ]
+
+}
+```
+
+`github` sets the default configuration to access GitHub, create commits and pull requests (can be changed in the cli before m)
+
+`platforms` sets the configuration to access and load the helm charts and respective environments
+- `directCommit` Indicates if the version changes would be made by a single commit or a pull request. 
+
+`services` sets the matching of naming in chart files to the respective repository 
+- `multi-tag` To indicate if the repository versions are deployed using multiple services (e.g. graphql-apis)
   
 ## Features
 
