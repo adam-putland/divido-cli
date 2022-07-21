@@ -17,7 +17,8 @@
         "name": "test",
         "repo": "test-k8s-services-inf",
         "chartPath": "configs/versions.yaml",
-        "directCommit": true
+        "directCommit": true,
+        "onlyOverrides": true
       },
       {
         "name": "stag",
@@ -66,7 +67,7 @@
       ".*Portal.*WebPub$": {
         "repo": "portals-web-pub"
       },
-      ".*GraphqlApi.*": {"repo": "graphql-apis", "multi-tag":  true}
+      ".*GraphqlApi.*": {"repo": "graphql-apis", "multiTag":  true}
     }
   ]
 

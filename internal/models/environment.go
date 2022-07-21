@@ -13,6 +13,10 @@ type Environment struct {
 }
 
 func (env Environment) String() string {
+
+	if env.OnlyOverrides {
+		return fmt.Sprintf("Name: %s\n", env.Name)
+	}
 	return fmt.Sprintf("Name: %s\nhelm version: %s\n", env.Name, env.HelmChartVersion)
 }
 

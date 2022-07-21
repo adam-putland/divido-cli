@@ -97,53 +97,30 @@ func (s *Service) GetRepoReleases(ctx context.Context, name string) (models.Rele
 
 func (s Service) GetEnv(ctx context.Context, platIndex, envIndex int) (*models.Environment, error) {
 
-	plat := s.config.GetPlatform(platIndex)
-	if plat == nil {
+	platCfg := s.config.GetPlatform(platIndex)
+	if platCfg == nil {
 		return nil, util.ErrMissingPlat
 	}
 
-	env := plat.GetEnvironment(envIndex)
-	if env == nil {
+	envCfg := platCfg.GetEnvironment(envIndex)
+	if envCfg == nil {
 		return nil, errors.New("could not get env")
 	}
 
-	environment := models.Environment{
-		EnvironmentConfig: *env,
+	env := models.Environment{
+		EnvironmentConfig: *envCfg,
 	}
 
-	// if no ChartPath will load services directly from the env repo
-	if env.ChartPath != "" {
-		content, err := s.gh.GetContent(ctx, s.config.Github.Org,
-			env.Repo, env.ChartPath, s.config.Github.MainBranch)
+	if !env.OnlyOverrides {
+		hlmVersion, err := s.gh.GetContent(ctx, s.config.Github.Org,
+			env.Repo, _defaultChartVersionFilePath, s.config.Github.MainBranch)
+		env.HelmChartVersion = string(hlmVersion)
 		if err != nil {
 			return nil, err
 		}
-
-		overrides, err := NewParser(content).Load()
-		if err != nil {
-			return nil, err
-		}
-		environment.Overrides = overrides
-		return &environment, nil
 	}
 
-	hlmVersion, err := s.gh.GetContent(ctx, s.config.Github.Org,
-		env.Repo, _defaultChartVersionFilePath, s.config.Github.MainBranch)
-	environment.HelmChartVersion = string(hlmVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if content, err := s.gh.GetContent(ctx, s.config.Github.Org,
-		env.Repo, _defaultHelmOverridesFilePath, s.config.Github.MainBranch); err == nil {
-
-		overrides, err := NewParser(content).Load()
-		if err != nil {
-			return nil, err
-		}
-		environment.Overrides = overrides
-	}
-	return &environment, nil
+	return &env, nil
 }
 
 func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, platIndex int) error {
@@ -165,6 +142,31 @@ func (s *Service) LoadEnvServices(ctx context.Context, env *models.Environment, 
 	}
 
 	env.Services = services
+
+	// if no ChartPath will load services directly from the env repo
+	if env.ChartPath != "" {
+		content, err := s.gh.GetContent(ctx, s.config.Github.Org,
+			env.Repo, env.ChartPath, s.config.Github.MainBranch)
+		if err != nil {
+			return err
+		}
+
+		overrides, err := NewParser(content).Load()
+		if err != nil {
+			return err
+		}
+		env.Overrides = overrides
+	}
+
+	if content, err := s.gh.GetContent(ctx, s.config.Github.Org,
+		env.Repo, _defaultHelmOverridesFilePath, s.config.Github.MainBranch); err == nil {
+
+		overrides, err := NewParser(content).Load()
+		if err != nil {
+			return err
+		}
+		env.Overrides = overrides
+	}
 	return nil
 }
 

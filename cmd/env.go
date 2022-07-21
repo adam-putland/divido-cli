@@ -12,19 +12,19 @@ import (
 )
 
 var envOptions = util.Options{
-	"Show Services",
+	"Show Services and/or overrides",
 	"Update Helm version",
 }
 
 func EnvUI(ctx context.Context, app di.Container) error {
 	s := app.Get("service").(*service.Service)
-	config := s.GetConfig()
-	platIndex, _, err := util.Select("Select platform", config.ListPlatform())
+	cfg := s.GetConfig()
+	platIndex, _, err := util.Select("Select platform", cfg.ListPlatform())
 	if err != nil {
 		return fmt.Errorf(PromptFailedMsg, err)
 	}
 
-	envI, _, err := util.Select("Select env", config.ListEnvironments(platIndex))
+	envI, _, err := util.Select("Select env", cfg.ListEnvironments(platIndex))
 	if err != nil {
 		return fmt.Errorf(PromptFailedMsg, err)
 	}
@@ -36,10 +36,10 @@ func EnvUI(ctx context.Context, app di.Container) error {
 
 	fmt.Println(env)
 
-	return EnvOptionsUI(ctx, s, env, config, platIndex)
+	return EnvOptionsUI(ctx, s, env, &cfg.Github, platIndex)
 }
 
-func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environment, config *models.Config, platIndex int) error {
+func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environment, ghCfg *models.GithubConfig, platIndex int) error {
 
 	option, _, err := util.Select(SelectOptionMsg, envOptions.WithBackOption())
 	if err != nil {
@@ -50,12 +50,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 	case 0:
 		err := s.LoadEnvServices(ctx, env, platIndex)
 		if err != nil {
-			return fmt.Errorf("loading environment services %w", err)
-		}
-
-		services := make([]*models.Service, 0, len(env.Services))
-		for _, ser := range env.Services {
-			services = append(services, ser)
+			return fmt.Errorf("loading environment services and overrides %w", err)
 		}
 
 		templates := &util.MultiSelectTemplates{
@@ -68,28 +63,61 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 				`{{ " (Press enter to quit)" | faint }}`),
 		}
 
-		searcher := func(input string, index int) bool {
-			s := services[index]
-			name := strings.Replace(strings.ToLower(s.Name), " ", "", -1)
-			input = strings.Replace(strings.ToLower(input), " ", "", -1)
-			return strings.Contains(name, input)
+		if len(env.Overrides) > 0 {
+
+			overrides := env.Overrides.ToArray()
+			searcherO := func(input string, index int) bool {
+				s := overrides[index]
+				name := strings.Replace(strings.ToLower(s.Name), " ", "", -1)
+				input = strings.Replace(strings.ToLower(input), " ", "", -1)
+				return strings.Contains(name, input)
+			}
+
+			prompt := util.MultiSelect{
+				Label:     "Overrides:",
+				Items:     overrides,
+				Templates: templates,
+				Size:      8,
+				Searcher:  searcherO,
+				HideHelp:  false,
+			}
+			_, err = prompt.Run()
+			if err != nil {
+				return fmt.Errorf(PromptFailedMsg, err)
+			}
 		}
 
-		prompt := util.MultiSelect{
-			Label:     "Services:",
-			Items:     services,
-			Templates: templates,
-			Size:      8,
-			Searcher:  searcher,
-			HideHelp:  false,
-		}
+		if len(env.Services) > 0 {
 
-		_, err = prompt.Run()
-		if err != nil {
-			return fmt.Errorf(PromptFailedMsg, err)
+			services := env.Services.ToArray()
+			searcher := func(input string, index int) bool {
+				s := services[index]
+				name := strings.Replace(strings.ToLower(s.Name), " ", "", -1)
+				input = strings.Replace(strings.ToLower(input), " ", "", -1)
+				return strings.Contains(name, input)
+			}
+
+			prompt := util.MultiSelect{
+				Label:     "Services:",
+				Items:     services,
+				Templates: templates,
+				Size:      8,
+				Searcher:  searcher,
+				HideHelp:  false,
+			}
+			_, err = prompt.Run()
+			if err != nil {
+				return fmt.Errorf(PromptFailedMsg, err)
+			}
 		}
 
 	case 1:
+
+		if env.OnlyOverrides {
+			fmt.Printf("%s only updated via overrides", env.Name)
+			break
+		}
+
 		fmt.Printf("Current Version: %s", env.HelmChartVersion)
 
 		releases, err := s.GetHelmVersions(ctx, env, platIndex)
@@ -103,7 +131,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 			return fmt.Errorf("Prompt failed %v\n", err)
 		}
 
-		githubDetails := github.WithBumpHC(&config.Github, fVersion)
+		githubDetails := github.WithBumpHC(ghCfg, fVersion)
 		err = BumpHelmUI(ctx, s, env, githubDetails, fVersion)
 		if err != nil {
 			fmt.Println(err)
@@ -113,7 +141,7 @@ func EnvOptionsUI(ctx context.Context, s *service.Service, env *models.Environme
 		return nil
 	}
 
-	return EnvOptionsUI(ctx, s, env, config, platIndex)
+	return EnvOptionsUI(ctx, s, env, ghCfg, platIndex)
 }
 
 func BumpHelmUI(ctx context.Context, s *service.Service, env *models.Environment, gd *github.Commit, version string) error {

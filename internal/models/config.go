@@ -8,7 +8,7 @@ type Config struct {
 
 type ServiceMapping struct {
 	Repo     string
-	MultiTag bool `mapstructure:"multi-tag"`
+	MultiTag bool
 }
 
 type GithubConfig struct {
@@ -35,10 +35,11 @@ type ServicesConfig struct {
 }
 
 type EnvironmentConfig struct {
-	Name         string
-	Repo         string
-	ChartPath    string `mapstructure:",omitempty"`
-	DirectCommit bool
+	Name          string
+	Repo          string
+	ChartPath     string `mapstructure:",omitempty"`
+	DirectCommit  bool
+	OnlyOverrides bool
 }
 
 func (c Config) ListPlatform() []string {
