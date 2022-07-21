@@ -45,7 +45,8 @@ An example input configuration file is shown below:
         "name": "test",
         "repo": "test-k8s-services-inf",
         "chartPath": "configs/versions.yaml",
-        "directCommit": true
+        "directCommit": true,
+        "onlyOverrides": true
       }
      ]
   }
@@ -66,6 +67,7 @@ An example input configuration file is shown below:
 
 `platforms` sets the configuration to access and load the helm charts and respective environments
 - `directCommit` Indicates if the version changes would be made by a single commit or a pull request. 
+- `onlyOverrides` Indicates if an environment is only updated via overrides and not helm version (e.g. divido testing env)
 
 `services` sets the matching of naming in chart files to the respective repository 
 - `multi-tag` To indicate if the repository versions are deployed using multiple services (e.g. graphql-apis)
